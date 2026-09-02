@@ -93,6 +93,7 @@ a{color:inherit;}
 .stat-row{display:flex;gap:10px;margin-top:16px;}
 .stat-row.tres .stat{flex:1;}
 .stat{background:rgba(255,255,255,.16);border-radius:16px;padding:10px 6px;text-align:center;}
+.stat:active{background:rgba(255,255,255,.28);}
 .stat .n{font-family:'Baloo 2',sans-serif;font-size:20px;font-weight:800;}
 .stat .l{font-size:9.5px;color:rgba(255,255,255,.85);margin-top:2px;font-weight:600;letter-spacing:.02em;}
 
@@ -230,6 +231,7 @@ nav.bottom-nav button.ativo{color:var(--blue);background:var(--blue-light);}
 
 .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
 .kpi{background:var(--white);border-radius:16px;padding:12px 6px;text-align:center;box-shadow:var(--shadow-sm);}
+.kpi:active{transform:scale(.97);}
 .kpi .n{font-family:'Baloo 2',sans-serif;font-size:19px;font-weight:800;color:var(--green-dark);}
 .kpi .l{font-size:9.5px;color:var(--muted);font-weight:600;margin-top:2px;}
 .kpi.faltam .n{color:var(--muted);}
@@ -259,8 +261,24 @@ nav.bottom-nav button.ativo{color:var(--blue);background:var(--blue-light);}
 }
 .campo input:focus,.campo select:focus,.campo textarea:focus{outline:none;border-color:var(--blue);}
 .campo .ajuda{font-size:11px;color:var(--muted);margin-top:5px;}
+.link-sutil{background:none;border:none;color:var(--blue);font-size:11.5px;font-weight:700;margin-top:7px;padding:2px 0;}
+.link-sutil.ativo{color:var(--muted);text-decoration:underline;}
 
 .fotos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+
+/* Modo visualização de cidade já registrada */
+.cidade-view-sub{font-size:13px;color:var(--muted);font-weight:600;margin-bottom:14px;}
+.cidade-view-foto{
+  width:100%;aspect-ratio:4/3;border-radius:20px;overflow:hidden;
+  background:var(--gray-fill);display:flex;align-items:center;justify-content:center;
+  font-size:40px;color:var(--muted);
+}
+.cidade-view-foto img{width:100%;height:100%;object-fit:cover;}
+.cidade-view-thumbs{display:flex;gap:8px;margin-top:8px;}
+.cidade-view-thumbs img{
+  width:56px;height:56px;border-radius:12px;object-fit:cover;
+  box-shadow:var(--shadow-sm);
+}
 .foto-slot{
   aspect-ratio:1;border-radius:14px;border:2px dashed var(--gray-fill-dark);
   display:flex;align-items:center;justify-content:center;color:var(--muted);

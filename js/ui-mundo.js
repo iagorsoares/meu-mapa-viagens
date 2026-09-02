@@ -3,7 +3,7 @@
 // com cidades registradas dentro de cada país.
 // ============================================================
 
-import { normalizar, bandeiraEmoji, debounce, centroDaFeature } from './util.js';
+import { normalizar, bandeiraEmoji, debounce, centroDaFeature, formatarData } from './util.js';
 import { abrirCidadeMundo } from './ui-modal-cidade.js';
 
 let cbs = null; // { aoMarcarVisitado(dadosPais) }
@@ -138,7 +138,7 @@ function atualizarPinosCidades(state) {
   camadaCidadesPais = L.layerGroup(
     cidades.map((c) => L.marker([c.lat, c.lng], {
       icon: L.divIcon({ className: '', html: '<div class="pin-cidade verde"></div>', iconSize: [26, 26], iconAnchor: [13, 26] })
-    }).bindPopup(`<b>${c.nome}</b><br>${c.dataVisita || ''}`).on('click', (e) => {
+    }).bindPopup(`<b>${c.nome}</b><br>${c.dataVisita ? formatarData(c.dataVisita) : 'data não registrada'}`).on('click', (e) => {
       L.DomEvent.stopPropagation(e);
       const pais = state.paises.find((p) => p.id === isoAtual);
       abrirCidadeMundo(isoAtual, pais?.nome || isoAtual, { lat: c.lat, lng: c.lng }, c);
@@ -168,7 +168,7 @@ function renderListaCidadesPais(state) {
       <div class="cidade-thumb" ${c.fotos?.[0] ? `style="background-image:url('${c.fotos[0]}')"` : ''}>${c.fotos?.[0] ? '' : '📍'}</div>
       <div>
         <div class="nome">${c.nome}</div>
-        <div class="meta">${c.dataVisita || ''} · ${c.fotos?.length || 0} fotos</div>
+        <div class="meta">${c.dataVisita ? formatarData(c.dataVisita) : 'data não registrada'} · ${c.fotos?.length || 0} fotos</div>
       </div>
     </div>`).join('');
 

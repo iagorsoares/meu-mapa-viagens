@@ -30,7 +30,6 @@ const state = {
 };
 
 const abasIniciadas = { brasil: false, mundo: false };
-let previewIniciado = false;
 let listenersAtivos = [];
 
 // ---------- Dados estáticos (geojson leve) ----------
@@ -63,6 +62,7 @@ function usuarioLabel() {
 
 function atualizarTudo() {
   Dashboard.atualizarStats(state);
+  Dashboard.atualizarKPIs(state);
   Dashboard.renderRecentes(state);
   Brasil.atualizar(state);
   Mundo.atualizar(state);
@@ -170,10 +170,6 @@ onAuthStateChanged(auth, async (user) => {
       return;
     }
 
-    if (!previewIniciado) {
-      Brasil.iniciarPreview(state, () => irParaAba('brasil'));
-      previewIniciado = true;
-    }
     iniciarListenersFirestore();
   } else {
     state.user = null;

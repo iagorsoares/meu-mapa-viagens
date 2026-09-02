@@ -1,26 +1,39 @@
 // ============================================================
 // Modal compartilhado: registrar ou visualizar uma cidade,
 // tanto do Brasil (município) quanto do Mundo.
+//
+// Duas telas dentro do mesmo painel:
+//  - #cidade-view: cidade já registrada — nome, foto grande, botão Editar.
+//  - #cidade-form: formulário (nova cidade, ou editar depois de tocar Editar).
 // ============================================================
 
 import { enviarFoto, urlMiniatura } from './upload.js';
-import { mostrarToast, hojeISO, centroDaFeature } from './util.js';
+import { mostrarToast, hojeISO, centroDaFeature, formatarData } from './util.js';
 
 let callbacks = null;
 let modo = null;              // 'br' | 'mundo'
 let contexto = null;          // { feature, uf } ou { paisIso2, latLng, paisNome }
 let registroExistente = null; // doc atual, se já visitada
 let fotosAtuais = [null, null, null]; // { url } ou null por slot
+let semData = false;          // true = "não lembro a data exata"
 
 const overlay = () => document.getElementById('modal-cidade');
 const elTitulo = () => document.getElementById('modal-cidade-titulo');
 const elNomeMundo = () => document.getElementById('form-cidade-nome-mundo');
 const elNomeBR = () => document.getElementById('form-cidade-nome-br');
 const elData = () => document.getElementById('form-cidade-data');
+const elBtnSemData = () => document.getElementById('btn-toggle-sem-data');
 const elCampoMundo = () => document.getElementById('campo-select-cidade-mundo');
 const elCampoBR = () => document.getElementById('campo-select-municipio');
 const elBtnExcluir = () => document.getElementById('btn-excluir-cidade');
 const elBtnSalvar = () => document.getElementById('btn-salvar-cidade');
+
+const elView = () => document.getElementById('cidade-view');
+const elForm = () => document.getElementById('cidade-form');
+const elViewSub = () => document.getElementById('cidade-view-sub');
+const elViewFoto = () => document.getElementById('cidade-view-foto');
+const elViewThumbs = () => document.getElementById('cidade-view-thumbs');
+const elBtnEditar = () => document.getElementById('btn-editar-cidade');
 
 export function initModal(cbs) {
   callbacks = cbs;
@@ -33,8 +46,10 @@ export function initModal(cbs) {
     input.onchange = () => onFotoEscolhida(slot, input);
   });
 
+  elBtnSemData().onclick = () => { semData = !semData; atualizarUiData(); };
   elBtnSalvar().onclick = onSalvar;
   elBtnExcluir().onclick = onExcluir;
+  elBtnEditar().onclick = mostrarForm;
 
   // Lightbox
   document.getElementById('lightbox-fechar').onclick = fecharLightbox;
@@ -46,16 +61,19 @@ export function initModal(cbs) {
 }
 
 // ---------- Abrir para Brasil ----------
+// feature pode ser null quando já existe registro (edição não precisa do geojson).
 export function abrirCidadeBR(feature, uf, registro) {
   modo = 'br';
   contexto = { feature, uf };
   registroExistente = registro || null;
 
+  const nome = registro ? registro.nome : feature.properties.name;
+
   elCampoBR().classList.remove('hidden');
   elCampoMundo().classList.add('hidden');
-  elNomeBR().value = feature.properties.name;
+  elNomeBR().value = nome;
 
-  abrirComum(feature.properties.name);
+  abrirComum(nome, uf);
 }
 
 // ---------- Abrir para Mundo ----------
@@ -69,12 +87,15 @@ export function abrirCidadeMundo(paisIso2, paisNome, latLng, registro) {
   elNomeMundo().value = registro ? registro.nome : '';
   elNomeMundo().disabled = false;
 
-  abrirComum(registro ? registro.nome : `Nova cidade — ${paisNome}`);
+  abrirComum(registro ? registro.nome : `Nova cidade — ${paisNome}`, paisNome);
 }
 
-function abrirComum(tituloBase) {
-  elTitulo().textContent = registroExistente ? `✏️ ${tituloBase}` : `＋ ${tituloBase}`;
-  elData().value = registroExistente ? registroExistente.dataVisita : hojeISO();
+function abrirComum(nome, subInfo) {
+  // Prepara os campos do formulário (necessário mesmo em modo visualização,
+  // pra já ficar pronto se a pessoa tocar em Editar).
+  semData = !!registroExistente && !registroExistente.dataVisita;
+  elData().value = registroExistente ? (registroExistente.dataVisita || '') : hojeISO();
+  atualizarUiData();
 
   fotosAtuais = [null, null, null];
   const fotosSalvas = registroExistente?.fotos || [];
@@ -82,7 +103,65 @@ function abrirComum(tituloBase) {
   renderFotos();
 
   elBtnExcluir().classList.toggle('hidden', !registroExistente);
+
   overlay().classList.add('aberto');
+
+  if (registroExistente) {
+    mostrarView(nome, subInfo);
+  } else {
+    mostrarForm();
+    elTitulo().textContent = `＋ ${nome}`;
+  }
+}
+
+// ---------- Alternar visualização / formulário ----------
+
+function mostrarView(nome, subInfo) {
+  elTitulo().textContent = nome;
+  const dataTexto = registroExistente?.dataVisita ? formatarData(registroExistente.dataVisita) : 'data não registrada';
+  elViewSub().textContent = `${subInfo} · ${dataTexto}`;
+
+  const validas = fotosValidas();
+  const fotoPrincipal = elViewFoto();
+  fotoPrincipal.innerHTML = validas.length ? '' : '<span>🏛️</span>';
+  if (validas.length) {
+    const img = document.createElement('img');
+    img.src = urlMiniatura(validas[0].url, 640);
+    img.onclick = () => abrirLightboxPorUrl(validas[0].url);
+    fotoPrincipal.appendChild(img);
+  }
+
+  const thumbsCont = elViewThumbs();
+  thumbsCont.innerHTML = '';
+  validas.slice(1).forEach((foto) => {
+    const img = document.createElement('img');
+    img.src = urlMiniatura(foto.url, 120);
+    img.onclick = () => abrirLightboxPorUrl(foto.url);
+    thumbsCont.appendChild(img);
+  });
+
+  elView().classList.remove('hidden');
+  elForm().classList.add('hidden');
+}
+
+function mostrarForm() {
+  const nomeAtual = modo === 'br' ? elNomeBR().value : (elNomeMundo().value || contexto.paisNome);
+  elTitulo().textContent = registroExistente ? `✏️ ${nomeAtual}` : `＋ ${nomeAtual}`;
+  elView().classList.add('hidden');
+  elForm().classList.remove('hidden');
+}
+
+function atualizarUiData() {
+  elData().disabled = semData;
+  if (semData) {
+    elData().value = '';
+    elBtnSemData().textContent = 'Informar data';
+    elBtnSemData().classList.add('ativo');
+  } else {
+    if (!elData().value) elData().value = hojeISO();
+    elBtnSemData().textContent = 'Não lembro a data exata';
+    elBtnSemData().classList.remove('ativo');
+  }
 }
 
 function fechar() {
@@ -90,7 +169,7 @@ function fechar() {
   modo = null; contexto = null; registroExistente = null;
 }
 
-// ---------- Fotos ----------
+// ---------- Fotos (modo formulário) ----------
 
 function renderFotos() {
   document.querySelectorAll('.foto-slot').forEach((slot, i) => {
@@ -153,6 +232,14 @@ function abrirLightbox(indexClicado) {
   document.getElementById('lightbox').classList.add('aberto');
 }
 
+function abrirLightboxPorUrl(url) {
+  const validas = fotosValidas();
+  lightboxIndex = validas.findIndex((f) => f.url === url);
+  if (lightboxIndex < 0) lightboxIndex = 0;
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('lightbox').classList.add('aberto');
+}
+
 function navegarLightbox(delta) {
   const validas = fotosValidas();
   if (!validas.length) return;
@@ -167,8 +254,8 @@ function fecharLightbox() {
 // ---------- Salvar / excluir ----------
 
 async function onSalvar() {
-  const data = elData().value;
-  if (!data) { mostrarToast('Escolha a data da visita'); return; }
+  const data = semData ? null : elData().value;
+  if (!semData && !data) { mostrarToast('Escolha a data ou toque em "não lembro a data exata"'); return; }
 
   const fotos = fotosValidas().map((f) => f.url);
   elBtnSalvar().disabled = true;
@@ -176,18 +263,20 @@ async function onSalvar() {
 
   try {
     if (modo === 'br') {
-      const { feature, uf } = contexto;
-      const centro = centroDaFeature(feature);
-      await callbacks.aoSalvarBR({
-        ibgeCode: feature.properties.id,
-        nome: feature.properties.name,
-        uf,
-        lat: centro.lat,
-        lng: centro.lng,
-        dataVisita: data,
-        fotos,
-        viagemId: registroExistente?.viagemId || null
-      });
+      let ibgeCode, nome, uf, lat, lng;
+      if (registroExistente) {
+        // Editando: reaproveita os dados já salvos, não precisa do geojson do município.
+        ({ id: ibgeCode, nome, uf, lat, lng } = registroExistente);
+      } else {
+        const { feature, uf: ufContexto } = contexto;
+        const centro = centroDaFeature(feature);
+        ibgeCode = feature.properties.id;
+        nome = feature.properties.name;
+        uf = ufContexto;
+        lat = centro.lat;
+        lng = centro.lng;
+      }
+      await callbacks.aoSalvarBR({ ibgeCode, nome, uf, lat, lng, dataVisita: data, fotos, viagemId: registroExistente?.viagemId || null });
     } else {
       const nome = elNomeMundo().value.trim();
       if (!nome) { mostrarToast('Digite o nome da cidade'); elBtnSalvar().disabled = false; elBtnSalvar().textContent = 'Salvar'; return; }

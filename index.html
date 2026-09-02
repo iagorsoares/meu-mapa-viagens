@@ -46,18 +46,21 @@
       <button class="avatar-btn" id="btn-avatar" title="Sair"></button>
     </div>
     <div class="stat-row tres" id="appbar-stats">
-      <div class="stat"><div class="n" id="stat-estados">–</div><div class="l">ESTADOS</div></div>
-      <div class="stat"><div class="n" id="stat-cidades-br">–</div><div class="l">CIDADES BR</div></div>
-      <div class="stat"><div class="n" id="stat-paises">–</div><div class="l">PAÍSES</div></div>
+      <div class="stat" data-ir-para="brasil"><div class="n" id="stat-estados">–</div><div class="l">ESTADOS</div></div>
+      <div class="stat" data-ir-para="brasil"><div class="n" id="stat-cidades-br">–</div><div class="l">CIDADES BR</div></div>
+      <div class="stat" data-ir-para="mundo"><div class="n" id="stat-paises">–</div><div class="l">PAÍSES</div></div>
     </div>
   </header>
 
   <main>
 
     <!-- ---------- DASHBOARD ---------- -->
-    <section class="tab" id="tab-dashboard">
-      <div class="section-title"><h2>🇧🇷 Brasil</h2><button class="pill-btn ghost" data-ir-para="brasil">ver mapa</button></div>
-      <div class="map-card"><div id="mapa-brasil-preview" class="leaflet-map"></div></div>
+    <section class="tab ativa" id="tab-dashboard">
+      <div class="kpi-grid">
+        <div class="kpi" data-ir-para="brasil"><div class="n" id="kpi-regioes">–</div><div class="l">REGIÕES BR</div></div>
+        <div class="kpi" data-ir-para="mundo"><div class="n" id="kpi-paises">–</div><div class="l">PAÍSES</div></div>
+        <div class="kpi" data-ir-para="brasil"><div class="n" id="kpi-cidades-br">–</div><div class="l">CIDADES BR</div></div>
+      </div>
 
       <div class="section-title"><h2>Últimos registros</h2></div>
       <div id="dashboard-recentes"><div class="vazio"><span class="loading-dot"></span></div></div>
@@ -193,34 +196,47 @@
     <button class="modal-close" id="modal-cidade-fechar">✕</button>
     <h3 id="modal-cidade-titulo">Registrar cidade</h3>
 
-    <div class="campo" id="campo-select-cidade-mundo">
-      <label>Cidade</label>
-      <input type="text" id="form-cidade-nome-mundo" placeholder="Nome da cidade">
-      <p class="ajuda">Toque no mapa do país para marcar onde fica.</p>
+    <!-- MODO VISUALIZAÇÃO: cidade já registrada -->
+    <div id="cidade-view" class="hidden">
+      <div class="cidade-view-sub" id="cidade-view-sub">–</div>
+      <div class="cidade-view-foto" id="cidade-view-foto"><span>🏛️</span></div>
+      <div class="cidade-view-thumbs" id="cidade-view-thumbs"></div>
+      <button class="pill-btn full" id="btn-editar-cidade" style="margin-top:16px;">✏️ Editar</button>
     </div>
 
-    <div class="campo" id="campo-select-municipio">
-      <label>Município</label>
-      <input type="text" id="form-cidade-nome-br" disabled>
-    </div>
+    <!-- MODO FORMULÁRIO: nova cidade ou edição -->
+    <div id="cidade-form">
 
-    <div class="campo">
-      <label>Data da visita</label>
-      <input type="date" id="form-cidade-data">
-    </div>
-
-    <div class="campo">
-      <label>Fotos (prefeitura, praça...)</label>
-      <div class="fotos-grid" id="fotos-grid">
-        <label class="foto-slot" data-slot="0"><span>＋</span><input type="file" accept="image/*"></label>
-        <label class="foto-slot" data-slot="1"><span>＋</span><input type="file" accept="image/*"></label>
-        <label class="foto-slot" data-slot="2"><span>＋</span><input type="file" accept="image/*"></label>
+      <div class="campo" id="campo-select-cidade-mundo">
+        <label>Cidade</label>
+        <input type="text" id="form-cidade-nome-mundo" placeholder="Nome da cidade">
+        <p class="ajuda">Toque no mapa do país para marcar onde fica.</p>
       </div>
-    </div>
 
-    <div class="modal-acoes">
-      <button class="pill-btn danger hidden" id="btn-excluir-cidade">Excluir</button>
-      <button class="pill-btn full" id="btn-salvar-cidade">Salvar</button>
+      <div class="campo" id="campo-select-municipio">
+        <label>Município</label>
+        <input type="text" id="form-cidade-nome-br" disabled>
+      </div>
+
+      <div class="campo">
+        <label>Data da visita</label>
+        <input type="date" id="form-cidade-data">
+        <button type="button" class="link-sutil" id="btn-toggle-sem-data">Não lembro a data exata</button>
+      </div>
+
+      <div class="campo">
+        <label>Fotos (prefeitura, praça...)</label>
+        <div class="fotos-grid" id="fotos-grid">
+          <label class="foto-slot" data-slot="0"><span>＋</span><input type="file" accept="image/*"></label>
+          <label class="foto-slot" data-slot="1"><span>＋</span><input type="file" accept="image/*"></label>
+          <label class="foto-slot" data-slot="2"><span>＋</span><input type="file" accept="image/*"></label>
+        </div>
+      </div>
+
+      <div class="modal-acoes">
+        <button class="pill-btn danger hidden" id="btn-excluir-cidade">Excluir</button>
+        <button class="pill-btn full" id="btn-salvar-cidade">Salvar</button>
+      </div>
     </div>
   </div>
 </div>

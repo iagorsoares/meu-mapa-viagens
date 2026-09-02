@@ -3,10 +3,9 @@
 // drill-down para municípios de um estado.
 // ============================================================
 
-import { corPorPercentual, normalizar, debounce } from './util.js';
+import { corPorPercentual, normalizar, debounce, formatarData } from './util.js';
 import { abrirCidadeBR } from './ui-modal-cidade.js';
 
-let mapaPreview = null, camadaPreview = null;
 let mapaFull = null, camadaFull = null;
 let mapaEstado = null, camadaMunicipios = null;
 
@@ -31,19 +30,6 @@ function estiloEstado(state) {
   });
 }
 
-// ---------- Mapa mini (Dashboard) ----------
-
-export function iniciarPreview(state, aoTocar) {
-  mapaPreview = L.map('mapa-brasil-preview', {
-    preferCanvas: true,
-    zoomControl: false, dragging: false, scrollWheelZoom: false,
-    doubleClickZoom: false, touchZoom: false, boxZoom: false, tap: false, attributionControl: false
-  });
-  camadaPreview = L.geoJSON(state.estadosGeo, { style: estiloEstado(state) }).addTo(mapaPreview);
-  mapaPreview.fitBounds(camadaPreview.getBounds(), { padding: [4, 4] });
-  document.getElementById('mapa-brasil-preview').addEventListener('click', aoTocar);
-}
-
 // ---------- Mapa completo (aba Brasil) ----------
 
 export function iniciarMapaCompleto(state) {
@@ -66,7 +52,6 @@ export function aoMostrarAbaBrasil() {
 // ---------- Atualização reativa (dados do Firestore mudaram) ----------
 
 export function atualizar(state) {
-  if (camadaPreview) camadaPreview.setStyle(estiloEstado(state));
   if (camadaFull) camadaFull.setStyle(estiloEstado(state));
   renderListaEstados(state, document.getElementById('busca-estado')?.value || '');
   if (siglaAtual) {
@@ -214,7 +199,7 @@ export function renderListaMunicipios(state) {
       </div>
       <div>
         <div class="nome">${i.nome}</div>
-        <div class="meta">${i.registro ? (i.registro.dataVisita || '') + ' · ' + (i.registro.fotos?.length || 0) + ' fotos' : 'ainda não visitada'}</div>
+        <div class="meta">${i.registro ? (i.registro.dataVisita ? formatarData(i.registro.dataVisita) : 'data não registrada') + ' · ' + (i.registro.fotos?.length || 0) + ' fotos' : 'ainda não visitada'}</div>
       </div>
     </div>`).join('');
 
