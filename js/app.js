@@ -191,7 +191,7 @@ initModal({
 });
 
 Mundo.iniciar({
-  aoMarcarVisitado: (dadosPais) => DB.salvarPais({ ...dadosPais, registradoPor: usuarioLabel() })
+  aoSalvarPais: (dadosPais) => DB.salvarPais({ ...dadosPais, registradoPor: usuarioLabel() })
 });
 
 Viagens.iniciar(state, {
