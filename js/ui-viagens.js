@@ -75,7 +75,7 @@ function abrirDetalhe(state, id, mantendoView = false) {
       <div class="sub">${p.uf || p.pais || ''}</div>
     </div>`).join('');
 
-  if (!mapaDetalhe) mapaDetalhe = L.map('mapa-viagem-detalhe', { attributionControl: false });
+  if (!mapaDetalhe) mapaDetalhe = L.map('mapa-viagem-detalhe', { attributionControl: false, preferCanvas: true });
   if (camadaRota) { mapaDetalhe.removeLayer(camadaRota); camadaRota = null; }
 
   const pontosValidos = paradas.filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number');

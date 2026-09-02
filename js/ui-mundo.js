@@ -27,7 +27,7 @@ function estiloPais(state) {
 }
 
 export function iniciarMapaCompleto(state) {
-  mapaFull = L.map('mapa-mundo-full', { attributionControl: false, minZoom: 1 }).setView([15, 10], 1.4);
+  mapaFull = L.map('mapa-mundo-full', { attributionControl: false, minZoom: 1, preferCanvas: true }).setView([15, 10], 1.4);
   camadaFull = L.geoJSON(state.paisesGeo, {
     style: estiloPais(state),
     onEachFeature: (feature, layer) => {
@@ -106,7 +106,7 @@ export function abrirPais(state, iso2) {
   document.getElementById('pais-badge').textContent = bandeiraEmoji(iso2);
   document.getElementById('pais-nome').textContent = pais?.nome || feature?.properties.name || iso2;
 
-  if (!mapaPais) mapaPais = L.map('mapa-pais-detalhe', { attributionControl: false });
+  if (!mapaPais) mapaPais = L.map('mapa-pais-detalhe', { attributionControl: false, preferCanvas: true });
   if (camadaContornoPais) { mapaPais.removeLayer(camadaContornoPais); }
   if (camadaCidadesPais) { mapaPais.removeLayer(camadaCidadesPais); camadaCidadesPais = null; }
 

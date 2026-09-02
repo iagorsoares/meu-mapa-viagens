@@ -36,14 +36,21 @@ let listenersAtivos = [];
 // ---------- Dados estáticos (geojson leve) ----------
 
 async function carregarDadosEstaticos() {
-  const [estados, contagem, paisesGeo] = await Promise.all([
+  const [estados, contagem] = await Promise.all([
     fetch('data/estados-br.json').then((r) => r.json()),
-    fetch('data/contagem-municipios-uf.json').then((r) => r.json()),
-    fetch('data/paises-mundo.json').then((r) => r.json())
+    fetch('data/contagem-municipios-uf.json').then((r) => r.json())
   ]);
   state.estadosGeo = estados;
   state.contagemUF = contagem;
-  state.paisesGeo = paisesGeo;
+}
+
+// Países do mundo (258 territórios, ~360 KB) só é baixado quando a aba
+// Mundo é aberta pela primeira vez — não precisa disso pra ver a tela inicial.
+let carregandoPaises = null;
+async function carregarPaisesGeo() {
+  if (state.paisesGeo) return;
+  if (!carregandoPaises) carregandoPaises = fetch('data/paises-mundo.json').then((r) => r.json());
+  state.paisesGeo = await carregandoPaises;
 }
 
 function usuarioLabel() {
@@ -83,7 +90,7 @@ const TITULOS_ABA = {
   viagens: ['ROTEIROS', 'Viagens']
 };
 
-function irParaAba(nome) {
+async function irParaAba(nome) {
   document.querySelectorAll('.tab').forEach((t) => t.classList.remove('ativa'));
   document.getElementById(`tab-${nome}`).classList.add('ativa');
   document.querySelectorAll('nav.bottom-nav button').forEach((b) => b.classList.toggle('ativo', b.dataset.tab === nome));
@@ -100,10 +107,17 @@ function irParaAba(nome) {
   }
 
   if (nome === 'mundo' && !abasIniciadas.mundo) {
+    abasIniciadas.mundo = true;
+    try {
+      await carregarPaisesGeo();
+    } catch (err) {
+      mostrarToast('Erro ao carregar dados do mundo: ' + err.message);
+      abasIniciadas.mundo = false;
+      return;
+    }
     Mundo.iniciarMapaCompleto(state);
     Mundo.ligarControles(state);
     Mundo.renderListaPaises(state);
-    abasIniciadas.mundo = true;
   } else if (nome === 'mundo') {
     Mundo.aoMostrarAbaMundo();
   }

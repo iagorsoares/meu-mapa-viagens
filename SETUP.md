@@ -126,10 +126,11 @@ Se algo não funcionar, me conta o que apareceu na tela (ou manda um print) — 
 3. Na tela do repositório vazio, clique no link **uploading an existing file**.
 4. Arraste a **pasta inteira do projeto** (a pasta `meu-mapa-viagens` descompactada, com `index.html`, `css/`, `js/`, `data/` etc. dentro) pra área de upload do navegador. O GitHub reconhece e recria a estrutura de pastas sozinho.
 5. Escreva uma mensagem (ex: "primeira versão") e clique **Commit changes**.
-6. Vá em **Settings → Pages** (menu lateral do repositório).
-7. Em **Source**, escolha **Deploy from a branch**.
-8. Em **Branch**, escolha **main** e a pasta **/ (root)** → **Save**.
-9. Aguarde 1-2 minutos, atualize a página — vai aparecer a URL publicada, algo como:
+6. Crie um arquivo `.nojekyll` vazio na raiz do repositório (**Add file → Create new file**, nome `.nojekyll`, sem conteúdo, **Commit changes**) — isso evita que o GitHub tente processar o site com Jekyll, o que quebra o build num projeto HTML puro como este.
+7. Vá em **Settings → Pages** (menu lateral do repositório).
+8. Em **Source**, escolha **Deploy from a branch**.
+9. Em **Branch**, escolha **main** e a pasta **/ (root)** → **Save**.
+10. Aguarde 1-2 minutos, atualize a página — vai aparecer a URL publicada, algo como:
    ```
    https://seu-usuario.github.io/meu-mapa-viagens/
    ```
@@ -187,6 +188,9 @@ Se um dia isso crescer muito (pouco provável pro uso descrito), o Firebase tem 
 
 **Login com Google não funciona na URL publicada, mas parece certo**
 → Volte na seção 9: o domínio do GitHub Pages precisa estar em Authentication → Authorized domains, escrito exatamente igual (sem `https://`, sem barra no final).
+
+**Build falha no GitHub Actions com menção a "Jekyll" nos logs**
+→ Falta o arquivo `.nojekyll` na raiz do repositório (veja seção 8, passo 6) — sem ele, o GitHub tenta processar o site como um projeto Jekyll e quebra.
 
 **"Missing or insufficient permissions" no console do navegador**
 → As regras do Firestore (seção 3.1) ainda não foram publicadas, ou o login não completou.

@@ -35,6 +35,7 @@ function estiloEstado(state) {
 
 export function iniciarPreview(state, aoTocar) {
   mapaPreview = L.map('mapa-brasil-preview', {
+    preferCanvas: true,
     zoomControl: false, dragging: false, scrollWheelZoom: false,
     doubleClickZoom: false, touchZoom: false, boxZoom: false, tap: false, attributionControl: false
   });
@@ -46,7 +47,7 @@ export function iniciarPreview(state, aoTocar) {
 // ---------- Mapa completo (aba Brasil) ----------
 
 export function iniciarMapaCompleto(state) {
-  mapaFull = L.map('mapa-brasil-full', { attributionControl: false });
+  mapaFull = L.map('mapa-brasil-full', { attributionControl: false, preferCanvas: true });
   camadaFull = L.geoJSON(state.estadosGeo, {
     style: estiloEstado(state),
     onEachFeature: (feature, layer) => {
@@ -144,7 +145,7 @@ export async function abrirEstado(state, sigla) {
   document.querySelectorAll('[data-filtro-mun]').forEach((c) => c.classList.toggle('ativo', c.dataset.filtroMun === 'todas'));
   document.getElementById('lista-municipios').innerHTML = '<div class="vazio"><span class="loading-dot"></span></div>';
 
-  if (!mapaEstado) mapaEstado = L.map('mapa-estado-detalhe', { attributionControl: false });
+  if (!mapaEstado) mapaEstado = L.map('mapa-estado-detalhe', { attributionControl: false, preferCanvas: true });
   if (camadaMunicipios) { mapaEstado.removeLayer(camadaMunicipios); camadaMunicipios = null; }
 
   try {
