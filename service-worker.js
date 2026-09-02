@@ -1,8 +1,11 @@
-// Service worker simples: cacheia o "shell" do app (HTML/CSS/JS/dados geográficos)
-// para abrir rápido e funcionar offline na estrada. Dados do Firebase/Cloudinary
-// NÃO são cacheados aqui (precisam de rede para ficarem atualizados/sincronizados).
+// Service worker: prioriza sempre a versão mais nova quando há internet
+// (essencial enquanto o app está em desenvolvimento/ajustes) e só usa o
+// que está guardado quando o celular está sem sinal, na estrada.
+//
+// CACHE_NOME muda a cada ajuste importante — isso força os celulares a
+// descartarem a cópia antiga e buscarem a nova assim que reconectarem.
 
-const CACHE_NOME = 'nosso-mapa-v1';
+const CACHE_NOME = 'nosso-mapa-v2';
 
 const ARQUIVOS_SHELL = [
   './',
@@ -14,13 +17,13 @@ const ARQUIVOS_SHELL = [
   './js/cloudinary-config.js',
   './js/db.js',
   './js/upload.js',
+  './js/util.js',
   './js/ui-dashboard.js',
   './js/ui-brasil.js',
   './js/ui-mundo.js',
   './js/ui-viagens.js',
   './js/ui-modal-cidade.js',
   './data/estados-br.json',
-  './data/paises-mundo.json',
   './data/contagem-municipios-uf.json'
 ];
 
@@ -54,7 +57,8 @@ self.addEventListener('fetch', (evento) => {
     return;
   }
 
-  // Municípios (data/municipios/*.json): cache-first, mas atualiza em segundo plano.
+  // Municípios (data/municipios/*.json): cache-first, mas atualiza em segundo plano
+  // (esses dados quase nunca mudam, então vale priorizar velocidade aqui).
   if (url.pathname.includes('/data/municipios/')) {
     evento.respondWith(
       caches.open(CACHE_NOME).then(async (cache) => {
@@ -71,8 +75,16 @@ self.addEventListener('fetch', (evento) => {
     return;
   }
 
-  // Shell do app: cache-first com fallback de rede.
+  // Resto do shell (HTML/CSS/JS/dados de estados): rede primeiro, cache só
+  // como reserva se estiver offline. Assim, qualquer atualização enviada
+  // pro GitHub aparece na próxima vez que abrir o app com internet.
   evento.respondWith(
-    caches.match(evento.request).then((resp) => resp || fetch(evento.request))
+    fetch(evento.request)
+      .then((resp) => {
+        const copia = resp.clone();
+        caches.open(CACHE_NOME).then((cache) => cache.put(evento.request, copia));
+        return resp;
+      })
+      .catch(() => caches.match(evento.request))
   );
 });
