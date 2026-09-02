@@ -1,0 +1,37 @@
+rules_version = '2';
+
+// Regras de segurança do Firestore.
+// Qualquer pessoa logada com uma conta Google consegue ler e escrever —
+// mesmo padrão usado no Garfinho. Quem protege o banco aqui é o login
+// exigido, não a URL do app ficar em segredo: o firebaseConfig do app
+// sempre é público (vai no código que roda no navegador de quem abrir
+// a página), então "ninguém sabe o link" não é uma proteção real.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+
+// ---------- Versão mais restrita (opcional) ----------
+// Trava o acesso só às contas de vocês dois — protege mesmo contra
+// alguém que descubra a URL de propósito e logue com a própria conta
+// Google. Pra usar: apague o bloco acima e descomente este, trocando
+// os e-mails.
+//
+// service cloud.firestore {
+//   match /databases/{database}/documents {
+//     function emailPermitido() {
+//       return request.auth != null &&
+//         request.auth.token.email in [
+//           'seu-email@gmail.com',
+//           'email-da-esposa@gmail.com'
+//         ];
+//     }
+//     match /{document=**} {
+//       allow read, write: if emailPermitido();
+//     }
+//   }
+// }
