@@ -48,7 +48,7 @@ export function renderRecentes(state) {
     .slice(0, 6);
 
   if (!recentes.length) {
-    cont.innerHTML = '<div class="vazio"><div class="ic">🧭</div><p>Nenhuma cidade registrada ainda.<br>Bora começar!</p></div>';
+    cont.innerHTML = '<div class="vazio"><div class="ic">🧭</div><p>Nenhuma visita com data registrada ainda.<br>Bora começar!</p></div>';
     return;
   }
 
