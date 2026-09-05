@@ -137,6 +137,22 @@ main{flex:1;overflow-y:auto;padding-bottom:calc(84px + var(--safe-bottom));}
 .leaflet-popup-content-wrapper{border-radius:14px;}
 .leaflet-popup-content{font-family:'Inter',sans-serif;font-size:13px;margin:10px 12px;}
 .leaflet-popup-content b{font-family:'Baloo 2',sans-serif;}
+
+/* Nomes dos municípios no mapa: sem caixinha, só o texto com um contorno
+   claro sutil (lê bem em cima do verde ou do cinza). Escondido até um
+   certo zoom pra não virar bagunça com centenas de nomes de uma vez. */
+.leaflet-tooltip.municipio-label{
+  background:none;border:none;box-shadow:none;padding:0;
+  font-family:'Inter',sans-serif;font-weight:700;font-size:10.5px;color:var(--ink);
+  pointer-events:none;white-space:nowrap;
+  opacity:0;transition:opacity .15s ease;
+  text-shadow:
+    -1px -1px 1.5px rgba(255,255,255,.9), 1px -1px 1.5px rgba(255,255,255,.9),
+    -1px  1px 1.5px rgba(255,255,255,.9), 1px  1px 1.5px rgba(255,255,255,.9),
+    0 0 3px rgba(255,255,255,.75);
+}
+.leaflet-tooltip.municipio-label::before{display:none;}
+.mostrar-nomes-municipio .leaflet-tooltip.municipio-label{opacity:1;}
 .leaflet-container{background:var(--gray-fill) !important;}
 .leaflet-control-zoom a{border-radius:10px !important;}
 

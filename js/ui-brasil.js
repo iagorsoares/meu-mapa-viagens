@@ -14,6 +14,8 @@ let geoMunicipiosAtual = null;
 let filtroMunicipioAtual = 'todas';
 const cacheMunicipios = {}; // sigla -> FeatureCollection
 
+const ZOOM_NOMES_MUNICIPIO = 9; // a partir daqui, mostra o nome de cada município no mapa
+
 // ---------- Estatísticas ----------
 
 export function statsDoEstado(state, sigla) {
@@ -142,12 +144,27 @@ export async function abrirEstado(state, sigla) {
 
   camadaMunicipios = L.geoJSON(geoMunicipiosAtual, {
     style: estiloMunicipio(state),
-    onEachFeature: (feat, layer) => layer.on('click', () => onCliqueMunicipio(state, feat, sigla))
+    onEachFeature: (feat, layer) => {
+      layer.on('click', () => onCliqueMunicipio(state, feat, sigla));
+      layer.bindTooltip(feat.properties.name, { permanent: true, direction: 'center', className: 'municipio-label' });
+    }
   }).addTo(mapaEstado);
   mapaEstado.fitBounds(camadaMunicipios.getBounds(), { padding: [8, 8] });
+  mapaEstado.off('zoomend', onZoomMudouEstado);
+  mapaEstado.on('zoomend', onZoomMudouEstado);
+  atualizarVisibilidadeNomes(mapaEstado);
   setTimeout(() => mapaEstado.invalidateSize(), 80);
 
   renderListaMunicipios(state);
+}
+
+function onZoomMudouEstado() {
+  atualizarVisibilidadeNomes(mapaEstado);
+}
+
+function atualizarVisibilidadeNomes(mapa) {
+  if (!mapa) return;
+  mapa.getContainer().classList.toggle('mostrar-nomes-municipio', mapa.getZoom() >= ZOOM_NOMES_MUNICIPIO);
 }
 
 export function fecharEstado() {
