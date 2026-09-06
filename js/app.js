@@ -179,6 +179,12 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+// ---------- Versão (só pra conferir se o celular está com o código mais novo) ----------
+
+const VERSAO_APP = 'v2026-09-06a';
+const elVersao = document.getElementById('versao-app');
+if (elVersao) elVersao.textContent = VERSAO_APP;
+
 // ---------- Wiring dos módulos ----------
 
 Dashboard.iniciar(() => irParaAba('brasil'));

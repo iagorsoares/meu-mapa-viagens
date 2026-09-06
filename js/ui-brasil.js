@@ -19,7 +19,7 @@ const cacheMunicipios = {}; // sigla -> FeatureCollection
 // compacto pra caber inteiro na tela), guardamos o zoom em que o estado foi
 // enquadrado ao abrir, e os nomes só aparecem X níveis de zoom além disso.
 let zoomBaseEstado = null;
-const NIVEIS_ZOOM_PARA_NOMES = 3; // quantos "apertos" de zoom além do estado inteiro até os nomes aparecerem
+const NIVEIS_ZOOM_PARA_NOMES = 3.5; // quantos "apertos" de zoom além do estado inteiro até os nomes aparecerem
 
 // ---------- Estatísticas ----------
 
