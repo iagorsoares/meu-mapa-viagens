@@ -14,7 +14,12 @@ let geoMunicipiosAtual = null;
 let filtroMunicipioAtual = 'todas';
 const cacheMunicipios = {}; // sigla -> FeatureCollection
 
-const ZOOM_NOMES_MUNICIPIO = 9; // a partir daqui, mostra o nome de cada município no mapa
+// Em vez de um zoom fixo (o zoom "de encaixe" varia MUITO conforme o formato
+// do estado — RS alongado precisa de zoom bem mais alto que um estado
+// compacto pra caber inteiro na tela), guardamos o zoom em que o estado foi
+// enquadrado ao abrir, e os nomes só aparecem X níveis de zoom além disso.
+let zoomBaseEstado = null;
+const NIVEIS_ZOOM_PARA_NOMES = 3; // quantos "apertos" de zoom além do estado inteiro até os nomes aparecerem
 
 // ---------- Estatísticas ----------
 
@@ -160,6 +165,7 @@ export async function abrirEstado(state, sigla) {
   setTimeout(() => {
     mapaEstado.invalidateSize();
     mapaEstado.fitBounds(camadaRef.getBounds(), { padding: [8, 8] });
+    zoomBaseEstado = mapaEstado.getZoom();
     atualizarVisibilidadeNomes(mapaEstado);
   }, 80);
 
@@ -171,8 +177,8 @@ function onZoomMudouEstado() {
 }
 
 function atualizarVisibilidadeNomes(mapa) {
-  if (!mapa) return;
-  mapa.getContainer().classList.toggle('mostrar-nomes-municipio', mapa.getZoom() >= ZOOM_NOMES_MUNICIPIO);
+  if (!mapa || zoomBaseEstado == null) return;
+  mapa.getContainer().classList.toggle('mostrar-nomes-municipio', mapa.getZoom() >= zoomBaseEstado + NIVEIS_ZOOM_PARA_NOMES);
 }
 
 export function fecharEstado() {
