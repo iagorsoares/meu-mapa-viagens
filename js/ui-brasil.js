@@ -110,7 +110,7 @@ function estiloMunicipio(state) {
   return (feature) => {
     const visitado = state.cidadesBR.some((c) => c.id === feature.properties.id);
     return {
-      fillColor: visitado ? '#009966' : '#E4EAF4',
+      fillColor: visitado ? '#009966' : '#EDECE6',
       color: '#ffffff', weight: 1, fillOpacity: visitado ? 0.92 : 0.7
     };
   };
@@ -149,11 +149,19 @@ export async function abrirEstado(state, sigla) {
       layer.bindTooltip(feat.properties.name, { permanent: true, direction: 'center', className: 'municipio-label' });
     }
   }).addTo(mapaEstado);
-  mapaEstado.fitBounds(camadaMunicipios.getBounds(), { padding: [8, 8] });
+
   mapaEstado.off('zoomend', onZoomMudouEstado);
   mapaEstado.on('zoomend', onZoomMudouEstado);
-  atualizarVisibilidadeNomes(mapaEstado);
-  setTimeout(() => mapaEstado.invalidateSize(), 80);
+
+  // Importante: só calcula o enquadramento (fitBounds) DEPOIS que o contêiner
+  // já tem o tamanho real — se calcular antes (contêiner recém-exibido, ainda
+  // sem layout), o Leaflet erra o zoom e libera os nomes cedo demais.
+  const camadaRef = camadaMunicipios;
+  setTimeout(() => {
+    mapaEstado.invalidateSize();
+    mapaEstado.fitBounds(camadaRef.getBounds(), { padding: [8, 8] });
+    atualizarVisibilidadeNomes(mapaEstado);
+  }, 80);
 
   renderListaMunicipios(state);
 }

@@ -19,11 +19,11 @@ export function iniciar(callbacks) {
 function estiloPais(state) {
   return (feature) => {
     if (feature.properties.iso2 === 'BR') {
-      return { fillColor: '#B7CBFA', color: '#ffffff', weight: 0.8, fillOpacity: 0.7 };
+      return { fillColor: '#6D9EF5', color: '#ffffff', weight: 0.8, fillOpacity: 0.75 };
     }
     const visitado = state.paises.some((p) => p.id === feature.properties.iso2);
     return {
-      fillColor: visitado ? '#009966' : '#E4EAF4',
+      fillColor: visitado ? '#009966' : '#EDECE6',
       color: '#ffffff', weight: 0.8,
       fillOpacity: visitado ? 0.88 : 0.55
     };

@@ -23,7 +23,7 @@ export function hojeISO() {
 
 /** Cor da escala de progresso (usada no mapa e nas barras). */
 export function corPorPercentual(pct) {
-  if (pct <= 0) return '#E4EAF4';
+  if (pct <= 0) return '#EDECE6';
   if (pct < 50) return '#9FDFC4';
   if (pct < 90) return '#009966';
   return '#00432F';
