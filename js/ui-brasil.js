@@ -155,6 +155,11 @@ export async function abrirEstado(state, sigla) {
     }
   }).addTo(mapaEstado);
 
+  // Esconde os nomes de imediato — só reaparecem quando o zoom passar do
+  // limite (senão dá um "flash" de todos os nomes enquanto o mapa se ajusta).
+  const painelNomes = mapaEstado.getPane('tooltipPane');
+  if (painelNomes) painelNomes.style.display = 'none';
+
   mapaEstado.off('zoomend', onZoomMudouEstado);
   mapaEstado.on('zoomend', onZoomMudouEstado);
 
@@ -178,7 +183,12 @@ function onZoomMudouEstado() {
 
 function atualizarVisibilidadeNomes(mapa) {
   if (!mapa || zoomBaseEstado == null) return;
-  mapa.getContainer().classList.toggle('mostrar-nomes-municipio', mapa.getZoom() >= zoomBaseEstado + NIVEIS_ZOOM_PARA_NOMES);
+  const mostrar = mapa.getZoom() >= zoomBaseEstado + NIVEIS_ZOOM_PARA_NOMES;
+  // Esconde/mostra o painel inteiro onde o Leaflet desenha os rótulos.
+  // (Não dá pra fazer isso só por CSS: o Leaflet define a opacidade de cada
+  // tooltip como estilo inline, o que sobrepõe qualquer regra da folha de estilo.)
+  const painel = mapa.getPane('tooltipPane');
+  if (painel) painel.style.display = mostrar ? '' : 'none';
 }
 
 export function fecharEstado() {
