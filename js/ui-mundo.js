@@ -43,7 +43,7 @@ export function iniciarMapaCompleto(state) {
     // Impede arrastar o mundo pra fora da tela (mais folga que nos outros
     // mapas, pra ainda dar pra circular bem pelo globo).
     mapaFull.setMaxBounds(L.latLngBounds([-85, -180], [85, 180]).pad(0.1));
-    mapaFull.options.maxBoundsViscosity = 1.0;
+    mapaFull.options.maxBoundsViscosity = 0.6;
   });
 }
 

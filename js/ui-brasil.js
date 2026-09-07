@@ -22,6 +22,7 @@ const cacheMunicipios = {}; // sigla -> FeatureCollection
 // rótulo", que se comporta igual em qualquer estado.
 let zoomLimiarNomes = null;
 const LARGURA_ALVO_MUNICIPIO_PX = 85; // quanto um município médio precisa ocupar na tela
+const MAX_NOMES_NA_TELA = 60; // teto de rótulos simultâneos, pra não pesar nem poluir
 
 /** Zoom em que o município médio desse estado passa a ocupar ~LARGURA_ALVO_MUNICIPIO_PX na tela. */
 function calcularZoomLimiar(bounds, qtdMunicipios) {
@@ -166,17 +167,11 @@ export async function abrirEstado(state, sigla) {
     style: estiloMunicipio(state),
     onEachFeature: (feat, layer) => {
       layer.on('click', () => onCliqueMunicipio(state, feat, sigla));
-      layer.bindTooltip(feat.properties.name, { permanent: true, direction: 'center', className: 'municipio-label' });
     }
   }).addTo(mapaEstado);
 
-  // Esconde os nomes de imediato — só reaparecem quando o zoom passar do
-  // limite (senão dá um "flash" de todos os nomes enquanto o mapa se ajusta).
-  const painelNomes = mapaEstado.getPane('tooltipPane');
-  if (painelNomes) painelNomes.style.display = 'none';
-
-  mapaEstado.off('zoomend', onZoomMudouEstado);
-  mapaEstado.on('zoomend', onZoomMudouEstado);
+  mapaEstado.off('moveend', onMapaEstadoMoveu);
+  mapaEstado.on('moveend', onMapaEstadoMoveu);
 
   // Importante: só calcula o enquadramento (fitBounds) DEPOIS que o contêiner
   // já tem o tamanho real — se calcular antes (contêiner recém-exibido, ainda
@@ -195,24 +190,44 @@ export async function abrirEstado(state, sigla) {
     mapaEstado.fitBounds(bounds, { padding: [8, 8] });
     travarNavegacao(mapaEstado, bounds);
     zoomLimiarNomes = calcularZoomLimiar(bounds, qtdMunicipios);
-    atualizarVisibilidadeNomes(mapaEstado);
+    atualizarNomesVisiveis();
   });
 
   renderListaMunicipios(state);
 }
 
-function onZoomMudouEstado() {
-  atualizarVisibilidadeNomes(mapaEstado);
+function onMapaEstadoMoveu() {
+  atualizarNomesVisiveis();
 }
 
-function atualizarVisibilidadeNomes(mapa) {
-  if (!mapa || zoomLimiarNomes == null) return;
-  const mostrar = mapa.getZoom() >= zoomLimiarNomes;
-  // Esconde/mostra o painel inteiro onde o Leaflet desenha os rótulos.
-  // (Não dá pra fazer isso só por CSS: o Leaflet define a opacidade de cada
-  // tooltip como estilo inline, o que sobrepõe qualquer regra da folha de estilo.)
-  const painel = mapa.getPane('tooltipPane');
-  if (painel) painel.style.display = mostrar ? '' : 'none';
+/**
+ * Cria rótulo APENAS para os municípios que estão na tela agora, e só quando o
+ * zoom passa do limiar. Criar os rótulos de todos de uma vez (496 no RS, 853 em
+ * MG) fazia o Leaflet reposicionar centenas de elementos a cada arrastar/zoom —
+ * era isso que deixava o mapa travado e lento pra abrir.
+ */
+function atualizarNomesVisiveis() {
+  if (!mapaEstado || !camadaMunicipios || zoomLimiarNomes == null) return;
+
+  const mostrar = mapaEstado.getZoom() >= zoomLimiarNomes;
+  const areaVisivel = mapaEstado.getBounds();
+  let criados = 0;
+
+  camadaMunicipios.eachLayer((layer) => {
+    const naTela = mostrar && criados < MAX_NOMES_NA_TELA && areaVisivel.intersects(layer.getBounds());
+    const jaTem = !!layer.getTooltip();
+
+    if (naTela) {
+      criados++;
+      if (!jaTem) {
+        layer.bindTooltip(layer.feature.properties.name, {
+          permanent: true, direction: 'center', className: 'municipio-label'
+        });
+      }
+    } else if (jaTem) {
+      layer.unbindTooltip();
+    }
+  });
 }
 
 export function fecharEstado() {

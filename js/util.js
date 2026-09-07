@@ -85,5 +85,8 @@ export function quandoMapaTiverTamanho(mapa, callback, tentativasRestantes = 30)
 export function travarNavegacao(mapa, bounds, folga = 0.35) {
   mapa.setMaxBounds(bounds.pad(folga));
   mapa.setMinZoom(mapa.getZoom());
-  mapa.options.maxBoundsViscosity = 1.0;
+  // Resistência parcial: segura o arrasto perto da borda sem dar a sensação
+  // de mapa "duro"/travado (1.0 trava seco, 0 deixa arrastar livre e só volta
+  // ao soltar).
+  mapa.options.maxBoundsViscosity = 0.6;
 }
