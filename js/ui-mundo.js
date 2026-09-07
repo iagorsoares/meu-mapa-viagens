@@ -5,7 +5,7 @@
 // nesse fluxo, é o país de origem, não "visitado".
 // ============================================================
 
-import { normalizar, bandeiraEmoji, debounce, mostrarToast } from './util.js';
+import { normalizar, bandeiraEmoji, debounce, mostrarToast, quandoMapaTiverTamanho, travarNavegacao } from './util.js';
 
 let cbs = null; // { aoSalvarPais(dadosPais) }
 let mapaFull = null, camadaFull = null;
@@ -38,7 +38,13 @@ export function iniciarMapaCompleto(state) {
       layer.on('click', () => onCliquePais(state, feature));
     }
   }).addTo(mapaFull);
-  setTimeout(() => mapaFull.invalidateSize(), 60);
+
+  quandoMapaTiverTamanho(mapaFull, () => {
+    // Impede arrastar o mundo pra fora da tela (mais folga que nos outros
+    // mapas, pra ainda dar pra circular bem pelo globo).
+    mapaFull.setMaxBounds(L.latLngBounds([-85, -180], [85, 180]).pad(0.1));
+    mapaFull.options.maxBoundsViscosity = 1.0;
+  });
 }
 
 export function aoMostrarAbaMundo() {
@@ -123,9 +129,13 @@ export function abrirPais(state, iso2) {
 
   if (feature) {
     camadaContornoPais = L.geoJSON(feature, { style: { fillColor: '#009966', color: '#155EEF', weight: 1.5, fillOpacity: .18 } }).addTo(mapaPais);
-    mapaPais.fitBounds(camadaContornoPais.getBounds(), { padding: [12, 12] });
+    const camadaRef = camadaContornoPais;
+    const isoDestaChamada = iso2;
+    quandoMapaTiverTamanho(mapaPais, () => {
+      if (isoAtual !== isoDestaChamada) return;
+      mapaPais.fitBounds(camadaRef.getBounds(), { padding: [12, 12] });
+    });
   }
-  setTimeout(() => mapaPais.invalidateSize(), 80);
 
   renderAnosPais(state);
 }

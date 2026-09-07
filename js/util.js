@@ -64,3 +64,26 @@ export function bandeiraEmoji(iso2) {
   const base = 127397;
   return String.fromCodePoint(...[...iso2.toUpperCase()].map((c) => base + c.charCodeAt(0)));
 }
+
+/**
+ * Só executa o callback quando o contêiner do mapa realmente tiver tamanho na
+ * tela. Sem isso, enquadrar um mapa cujo contêiner acabou de sair do "escondido"
+ * (tamanho 0x0) resulta num mapa em branco.
+ */
+export function quandoMapaTiverTamanho(mapa, callback, tentativasRestantes = 30) {
+  const el = mapa.getContainer();
+  if (el.clientWidth > 0 && el.clientHeight > 0) {
+    mapa.invalidateSize();
+    callback();
+    return;
+  }
+  if (tentativasRestantes <= 0) { mapa.invalidateSize(); callback(); return; }
+  requestAnimationFrame(() => quandoMapaTiverTamanho(mapa, callback, tentativasRestantes - 1));
+}
+
+/** Impede arrastar/afastar o mapa até o conteúdo sumir da tela. */
+export function travarNavegacao(mapa, bounds, folga = 0.35) {
+  mapa.setMaxBounds(bounds.pad(folga));
+  mapa.setMinZoom(mapa.getZoom());
+  mapa.options.maxBoundsViscosity = 1.0;
+}

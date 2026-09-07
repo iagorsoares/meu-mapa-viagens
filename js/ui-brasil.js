@@ -3,7 +3,7 @@
 // drill-down para municípios de um estado.
 // ============================================================
 
-import { corPorPercentual, normalizar, debounce, formatarData } from './util.js';
+import { corPorPercentual, normalizar, debounce, formatarData, quandoMapaTiverTamanho, travarNavegacao } from './util.js';
 import { abrirCidadeBR } from './ui-modal-cidade.js';
 
 let mapaFull = null, camadaFull = null;
@@ -59,9 +59,12 @@ export function iniciarMapaCompleto(state) {
       layer.on('click', () => abrirEstado(state, feature.properties.sigla));
     }
   }).addTo(mapaFull);
-  mapaFull.fitBounds(camadaFull.getBounds(), { padding: [6, 6] });
-  mapaFull.setMinZoom(mapaFull.getZoom());
-  setTimeout(() => mapaFull.invalidateSize(), 60);
+
+  quandoMapaTiverTamanho(mapaFull, () => {
+    const bounds = camadaFull.getBounds();
+    mapaFull.fitBounds(bounds, { padding: [6, 6] });
+    travarNavegacao(mapaFull, bounds);
+  });
 }
 
 export function aoMostrarAbaBrasil() {
@@ -180,13 +183,20 @@ export async function abrirEstado(state, sigla) {
   // sem layout), o Leaflet erra o zoom e libera os nomes cedo demais.
   const camadaRef = camadaMunicipios;
   const qtdMunicipios = geoMunicipiosAtual.features.length;
-  setTimeout(() => {
-    mapaEstado.invalidateSize();
+  const siglaDestaChamada = sigla;
+  quandoMapaTiverTamanho(mapaEstado, () => {
+    // Se o usuário já trocou de estado enquanto esperávamos, não mexe no mapa.
+    if (siglaAtual !== siglaDestaChamada) return;
     const bounds = camadaRef.getBounds();
+    // Libera os limites antigos antes de reenquadrar (senão o estado anterior
+    // ainda restringe o novo e o mapa pode abrir fora de vista).
+    mapaEstado.setMinZoom(1);
+    mapaEstado.setMaxBounds(null);
     mapaEstado.fitBounds(bounds, { padding: [8, 8] });
+    travarNavegacao(mapaEstado, bounds);
     zoomLimiarNomes = calcularZoomLimiar(bounds, qtdMunicipios);
     atualizarVisibilidadeNomes(mapaEstado);
-  }, 80);
+  });
 
   renderListaMunicipios(state);
 }

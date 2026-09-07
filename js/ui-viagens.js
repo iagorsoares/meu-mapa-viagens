@@ -7,7 +7,7 @@
 // seleção são lidas direto do DOM na hora de salvar.
 // ============================================================
 
-import { formatarData, mostrarToast, hojeISO } from './util.js';
+import { formatarData, mostrarToast, hojeISO, quandoMapaTiverTamanho } from './util.js';
 
 let cbs = null; // { aoSalvarViagem(dados), aoExcluirViagem(id) }
 let mapaDetalhe = null, camadaRota = null;
@@ -88,11 +88,13 @@ function abrirDetalhe(state, id, mantendoView = false) {
       }).bindPopup(`<b>${i + 1}. ${p.nome}</b>`).addTo(grupo);
     });
     camadaRota = grupo.addTo(mapaDetalhe);
-    mapaDetalhe.fitBounds(camadaRota.getBounds(), { padding: [24, 24] });
+    const camadaRef = camadaRota;
+    quandoMapaTiverTamanho(mapaDetalhe, () => {
+      mapaDetalhe.fitBounds(camadaRef.getBounds(), { padding: [24, 24] });
+    });
   } else {
-    mapaDetalhe.setView([-14.2, -51.9], 3);
+    quandoMapaTiverTamanho(mapaDetalhe, () => mapaDetalhe.setView([-14.2, -51.9], 3));
   }
-  setTimeout(() => mapaDetalhe.invalidateSize(), 80);
 }
 
 export function fecharDetalheOuForm() {
