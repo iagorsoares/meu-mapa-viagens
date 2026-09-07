@@ -12,8 +12,9 @@ import * as DB from './db.js';
 import * as Dashboard from './ui-dashboard.js';
 import * as Brasil from './ui-brasil.js';
 import * as Mundo from './ui-mundo.js';
-import * as Viagens from './ui-viagens.js';
+import * as Timeline from './ui-timeline.js';
 import { initModal } from './ui-modal-cidade.js';
+import { initLightbox } from './ui-lightbox.js';
 import { mostrarToast } from './util.js';
 
 // ---------- Estado global (um único objeto, mutado nos campos) ----------
@@ -25,8 +26,7 @@ const state = {
   contagemUF: {},
   cidadesBR: [],
   paises: [],
-  cidadesMundo: [],
-  viagens: []
+  cidadesMundo: []
 };
 
 const abasIniciadas = { brasil: false, mundo: false };
@@ -66,14 +66,13 @@ function atualizarTudo() {
   Dashboard.renderRecentes(state);
   Brasil.atualizar(state);
   Mundo.atualizar(state);
-  Viagens.atualizar(state);
+  Timeline.atualizar(state);
 }
 
 function iniciarListenersFirestore() {
   listenersAtivos.push(DB.observarCidadesBR((lista) => { state.cidadesBR = lista; atualizarTudo(); }));
   listenersAtivos.push(DB.observarPaises((lista) => { state.paises = lista; atualizarTudo(); }));
   listenersAtivos.push(DB.observarCidadesMundo((lista) => { state.cidadesMundo = lista; atualizarTudo(); }));
-  listenersAtivos.push(DB.observarViagens((lista) => { state.viagens = lista; atualizarTudo(); }));
 }
 
 function pararListenersFirestore() {
@@ -87,7 +86,7 @@ const TITULOS_ABA = {
   dashboard: ['REGISTRO DE VIAGENS', 'Nosso Mapa'],
   brasil: ['EXPLORANDO', 'Brasil'],
   mundo: ['EXPLORANDO', 'Mundo'],
-  viagens: ['ROTEIROS', 'Viagens']
+  timeline: ['HISTÓRICO', 'Timeline']
 };
 
 async function irParaAba(nome) {
@@ -126,7 +125,6 @@ async function irParaAba(nome) {
 function fecharDetalhe(nome) {
   if (nome === 'brasil') Brasil.fecharEstado();
   if (nome === 'mundo') Mundo.fecharPais();
-  if (nome === 'viagens') Viagens.fecharDetalheOuForm();
 }
 
 document.addEventListener('click', (e) => {
@@ -181,13 +179,15 @@ onAuthStateChanged(auth, async (user) => {
 
 // ---------- Versão (só pra conferir se o celular está com o código mais novo) ----------
 
-const VERSAO_APP = 'v2026-09-06e';
+const VERSAO_APP = 'v2026-09-07c';
 const elVersao = document.getElementById('versao-app');
 if (elVersao) elVersao.textContent = VERSAO_APP;
 
 // ---------- Wiring dos módulos ----------
 
 Dashboard.iniciar(() => irParaAba('brasil'));
+
+initLightbox();
 
 initModal({
   aoSalvarBR: (dados) => DB.salvarCidadeBR({ ...dados, registradoPor: usuarioLabel() }),
@@ -200,10 +200,7 @@ Mundo.iniciar({
   aoSalvarPais: (dadosPais) => DB.salvarPais({ ...dadosPais, registradoPor: usuarioLabel() })
 });
 
-Viagens.iniciar(state, {
-  aoSalvarViagem: (dados) => DB.salvarViagem({ ...dados, registradoPor: usuarioLabel() }),
-  aoExcluirViagem: (id) => DB.excluirViagem(id)
-});
+Timeline.iniciar(state);
 
 // ---------- Service worker (PWA offline) ----------
 

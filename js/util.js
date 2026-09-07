@@ -90,3 +90,41 @@ export function travarNavegacao(mapa, bounds, folga = 0.35) {
   // ao soltar).
   mapa.options.maxBoundsViscosity = 0.6;
 }
+
+// Nome do país em português. O GeoJSON traz os nomes em inglês ("Germany"),
+// então usamos o tradutor de regiões que já vem no próprio navegador — sem
+// precisar embutir nenhuma tabela de tradução no app.
+let _tradutorPaises = null;
+try {
+  _tradutorPaises = new Intl.DisplayNames(['pt-BR'], { type: 'region' });
+} catch (e) {
+  _tradutorPaises = null; // navegador antigo: cai no nome original
+}
+
+export function nomePaisPT(iso2, nomeOriginal = '') {
+  if (!iso2) return nomeOriginal;
+  try {
+    const traduzido = _tradutorPaises?.of(iso2.toUpperCase());
+    // Quando não conhece o código, o Intl devolve o próprio código de volta.
+    if (traduzido && traduzido.toUpperCase() !== iso2.toUpperCase()) return traduzido;
+  } catch (e) { /* ignora e usa o original */ }
+  return nomeOriginal || iso2;
+}
+
+/**
+ * Bandeiras de países são arquivos de imagem, e só mantemos no app as dos
+ * países já visitados. Se algum dia um país novo for marcado antes de sua
+ * bandeira ser adicionada, a imagem falharia e apareceria um ícone quebrado —
+ * aqui trocamos por um emoji de bandeira, que funciona para qualquer país.
+ */
+export function aplicarReservaBandeiras(container) {
+  if (!container) return;
+  container.querySelectorAll('img[data-bandeira-iso]').forEach((img) => {
+    img.onerror = () => {
+      const substituto = document.createElement('span');
+      substituto.className = 'bandeira-emoji';
+      substituto.textContent = bandeiraEmoji(img.dataset.bandeiraIso);
+      img.replaceWith(substituto);
+    };
+  });
+}

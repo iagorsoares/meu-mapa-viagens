@@ -7,12 +7,15 @@ import { corPorPercentual, normalizar, debounce, formatarData, quandoMapaTiverTa
 import { abrirCidadeBR } from './ui-modal-cidade.js';
 
 let mapaFull = null, camadaFull = null;
-let mapaEstado = null, camadaMunicipios = null;
+let mapaEstado = null, camadaMunicipios = null, camadaNomes = null;
 
 let siglaAtual = null;
 let geoMunicipiosAtual = null;
 let filtroMunicipioAtual = 'todas';
 const cacheMunicipios = {}; // sigla -> FeatureCollection
+
+const MUNICIPIOS_POR_PAGINA = 60;
+let municipiosMostrados = MUNICIPIOS_POR_PAGINA;
 
 // O limiar de zoom para mostrar os nomes é calculado por estado, com base no
 // tamanho MÉDIO DOS MUNICÍPIOS (não no tamanho do estado). Ancorar no estado
@@ -34,11 +37,30 @@ function calcularZoomLimiar(bounds, qtdMunicipios) {
   return Math.log2((LARGURA_ALVO_MUNICIPIO_PX * 360) / (256 * larguraMediaMunicipio));
 }
 
+// ---------- Índice de cidades visitadas ----------
+// Antes, cada município do mapa e da lista fazia uma busca linear no array de
+// cidades visitadas (853 municípios × N cidades em MG). Aqui montamos um índice
+// uma vez por atualização de dados e reaproveitamos.
+let _indiceCache = null, _indiceFonte = null;
+
+function indiceCidades(state) {
+  if (_indiceFonte === state.cidadesBR && _indiceCache) return _indiceCache;
+  const porId = new Map();
+  const porUF = new Map();
+  for (const c of state.cidadesBR) {
+    porId.set(c.id, c);
+    porUF.set(c.uf, (porUF.get(c.uf) || 0) + 1);
+  }
+  _indiceCache = { porId, porUF };
+  _indiceFonte = state.cidadesBR;
+  return _indiceCache;
+}
+
 // ---------- Estatísticas ----------
 
 export function statsDoEstado(state, sigla) {
   const total = state.contagemUF[sigla] || 0;
-  const visitadas = state.cidadesBR.filter((c) => c.uf === sigla).length;
+  const visitadas = indiceCidades(state).porUF.get(sigla) || 0;
   const pct = total ? Math.round((visitadas / total) * 100) : 0;
   return { total, visitadas, faltam: Math.max(total - visitadas, 0), pct };
 }
@@ -74,13 +96,27 @@ export function aoMostrarAbaBrasil() {
 
 // ---------- Atualização reativa (dados do Firestore mudaram) ----------
 
+// São 4 escutas no Firestore (cidades BR, países, cidades mundo, viagens) e
+// todas chamam isto. Sem agrupar, cada carga inicial redesenhava a tela 4×.
+let atualizacaoAgendada = false;
+
 export function atualizar(state) {
+  if (atualizacaoAgendada) return;
+  atualizacaoAgendada = true;
+  requestAnimationFrame(() => {
+    atualizacaoAgendada = false;
+    aplicarAtualizacao(state);
+  });
+}
+
+function aplicarAtualizacao(state) {
   if (camadaFull) camadaFull.setStyle(estiloEstado(state));
   renderListaEstados(state, document.getElementById('busca-estado')?.value || '');
   if (siglaAtual) {
     atualizarKPIsEstado(state, siglaAtual);
     if (camadaMunicipios) camadaMunicipios.setStyle(estiloMunicipio(state));
     renderListaMunicipios(state);
+    atualizarNomesVisiveis();
   }
 }
 
@@ -102,9 +138,11 @@ export function renderListaEstados(state, filtroBusca = '') {
 
   cont.innerHTML = estados.map((e) => `
     <div class="lista-row" data-sigla="${e.sigla}">
-      <div class="badge ${e.visitadas === 0 ? 'zero' : ''}">${e.sigla}</div>
+      <div class="badge-bandeira ${e.visitadas === 0 ? 'zero' : ''}">
+        <img src="bandeiras/${e.sigla.toLowerCase()}.png" alt="" loading="lazy">
+      </div>
       <div class="linha-info">
-        <div class="nome">${e.nome}</div>
+        <div class="nome">${e.nome} <span class="uf-tag">${e.sigla}</span></div>
         <div class="bar-track"><div class="bar-fill" style="width:${e.pct}%"></div></div>
       </div>
       <div class="linha-pct">${e.pct}%</div>
@@ -128,8 +166,9 @@ async function carregarMunicipios(sigla) {
 }
 
 function estiloMunicipio(state) {
+  const { porId } = indiceCidades(state);
   return (feature) => {
-    const visitado = state.cidadesBR.some((c) => c.id === feature.properties.id);
+    const visitado = porId.has(feature.properties.id);
     return {
       fillColor: visitado ? '#009966' : '#EDECE6',
       color: '#ffffff', weight: 1, fillOpacity: visitado ? 0.92 : 0.7
@@ -143,15 +182,20 @@ export async function abrirEstado(state, sigla) {
   document.getElementById('brasil-estado-view').classList.remove('hidden');
 
   const feature = state.estadosGeo.features.find((f) => f.properties.sigla === sigla);
-  document.getElementById('estado-badge').textContent = sigla;
-  document.getElementById('estado-nome').textContent = feature.properties.name;
+  document.getElementById('estado-badge').innerHTML = `<img src="bandeiras/${sigla.toLowerCase()}.png" alt="">`;
+  document.getElementById('estado-nome').innerHTML = `${feature.properties.name} <span class="uf-tag">${sigla}</span>`;
   document.getElementById('estado-sub').textContent = `${state.contagemUF[sigla] || 0} municípios`;
   atualizarKPIsEstado(state, sigla);
 
   document.getElementById('busca-municipio').value = '';
   filtroMunicipioAtual = 'todas';
+  municipiosMostrados = MUNICIPIOS_POR_PAGINA;
   document.querySelectorAll('[data-filtro-mun]').forEach((c) => c.classList.toggle('ativo', c.dataset.filtroMun === 'todas'));
   document.getElementById('lista-municipios').innerHTML = '<div class="vazio"><span class="loading-dot"></span></div>';
+
+  // Limpa os nomes do estado anterior de imediato (senão ficam na tela até o
+  // novo mapa terminar de se ajustar).
+  if (camadaNomes) camadaNomes.clearLayers();
 
   if (!mapaEstado) mapaEstado = L.map('mapa-estado-detalhe', { attributionControl: false, preferCanvas: true });
   if (camadaMunicipios) { mapaEstado.removeLayer(camadaMunicipios); camadaMunicipios = null; }
@@ -205,35 +249,66 @@ function onMapaEstadoMoveu() {
  * zoom passa do limiar. Criar os rótulos de todos de uma vez (496 no RS, 853 em
  * MG) fazia o Leaflet reposicionar centenas de elementos a cada arrastar/zoom —
  * era isso que deixava o mapa travado e lento pra abrir.
+ *
+ * O rótulo é posicionado dentro da PARTE VISÍVEL do município: quando se dá
+ * bastante zoom, o município fica maior que a tela e seu centro sai de vista —
+ * era por isso que vários nomes simplesmente não apareciam.
  */
 function atualizarNomesVisiveis() {
   if (!mapaEstado || !camadaMunicipios || zoomLimiarNomes == null) return;
 
-  const mostrar = mapaEstado.getZoom() >= zoomLimiarNomes;
+  if (!camadaNomes) camadaNomes = L.layerGroup().addTo(mapaEstado);
+  camadaNomes.clearLayers();
+
+  if (mapaEstado.getZoom() < zoomLimiarNomes) return;
+
   const areaVisivel = mapaEstado.getBounds();
-  let criados = 0;
+  const centroTela = areaVisivel.getCenter();
+  const candidatos = [];
 
   camadaMunicipios.eachLayer((layer) => {
-    const naTela = mostrar && criados < MAX_NOMES_NA_TELA && areaVisivel.intersects(layer.getBounds());
-    const jaTem = !!layer.getTooltip();
-
-    if (naTela) {
-      criados++;
-      if (!jaTem) {
-        layer.bindTooltip(layer.feature.properties.name, {
-          permanent: true, direction: 'center', className: 'municipio-label'
-        });
-      }
-    } else if (jaTem) {
-      layer.unbindTooltip();
-    }
+    const posicao = pontoVisivelDoMunicipio(layer.getBounds(), areaVisivel);
+    if (!posicao) return;
+    const dLat = posicao.lat - centroTela.lat;
+    const dLng = posicao.lng - centroTela.lng;
+    candidatos.push({ posicao, nome: layer.feature.properties.name, distancia: dLat * dLat + dLng * dLng });
   });
+
+  // Se houver mais candidatos que o teto, mantém os mais próximos do centro da
+  // tela — assim o corte nunca descarta um município que você está olhando.
+  if (candidatos.length > MAX_NOMES_NA_TELA) {
+    candidatos.sort((a, b) => a.distancia - b.distancia);
+    candidatos.length = MAX_NOMES_NA_TELA;
+  }
+
+  for (const c of candidatos) {
+    camadaNomes.addLayer(
+      L.tooltip({ permanent: true, direction: 'center', className: 'municipio-label', interactive: false })
+        .setLatLng(c.posicao)
+        .setContent(c.nome)
+    );
+  }
+}
+
+/** Onde colocar o nome: no centro do município se ele estiver visível; senão, no meio do pedaço que aparece na tela. */
+function pontoVisivelDoMunicipio(boundsMunicipio, areaVisivel) {
+  if (!areaVisivel.intersects(boundsMunicipio)) return null;
+  const centro = boundsMunicipio.getCenter();
+  if (areaVisivel.contains(centro)) return centro;
+
+  const sul = Math.max(boundsMunicipio.getSouth(), areaVisivel.getSouth());
+  const norte = Math.min(boundsMunicipio.getNorth(), areaVisivel.getNorth());
+  const oeste = Math.max(boundsMunicipio.getWest(), areaVisivel.getWest());
+  const leste = Math.min(boundsMunicipio.getEast(), areaVisivel.getEast());
+  if (sul > norte || oeste > leste) return null;
+  return L.latLng((sul + norte) / 2, (oeste + leste) / 2);
 }
 
 export function fecharEstado() {
   document.getElementById('brasil-estado-view').classList.add('hidden');
   document.getElementById('brasil-lista-view').classList.remove('hidden');
   siglaAtual = null;
+  if (camadaNomes) camadaNomes.clearLayers();
 }
 
 function atualizarKPIsEstado(state, sigla) {
@@ -244,7 +319,7 @@ function atualizarKPIsEstado(state, sigla) {
 }
 
 function onCliqueMunicipio(state, feature, sigla) {
-  const registro = state.cidadesBR.find((c) => c.id === feature.properties.id);
+  const registro = indiceCidades(state).porId.get(feature.properties.id);
   abrirCidadeBR(feature, sigla, registro || null);
 }
 
@@ -255,11 +330,11 @@ export function renderListaMunicipios(state) {
   if (!cont || !geoMunicipiosAtual) return;
 
   const busca = document.getElementById('busca-municipio').value;
+  const { porId } = indiceCidades(state);
 
-  let itens = geoMunicipiosAtual.features.map((f) => {
-    const registro = state.cidadesBR.find((c) => c.id === f.properties.id);
-    return { feature: f, nome: f.properties.name, registro };
-  });
+  let itens = geoMunicipiosAtual.features.map((f) => ({
+    feature: f, nome: f.properties.name, registro: porId.get(f.properties.id)
+  }));
 
   if (filtroMunicipioAtual === 'visitadas') itens = itens.filter((i) => i.registro);
   if (filtroMunicipioAtual === 'faltam') itens = itens.filter((i) => !i.registro);
@@ -272,7 +347,13 @@ export function renderListaMunicipios(state) {
     return;
   }
 
-  cont.innerHTML = itens.map((i) => `
+  // Só desenha um pedaço por vez. Desenhar os 853 municípios de MG de uma vez
+  // (cada um com foto e clique próprio) travava a tela e deixava a abertura do
+  // estado lenta — ainda mais porque isso se repetia a cada atualização de dados.
+  const visiveis = itens.slice(0, municipiosMostrados);
+  const restantes = itens.length - visiveis.length;
+
+  cont.innerHTML = visiveis.map((i) => `
     <div class="cidade-card ${i.registro ? '' : 'nao-visitada'}" data-id="${i.feature.properties.id}">
       <div class="cidade-thumb" ${i.registro?.fotos?.[0] ? `style="background-image:url('${i.registro.fotos[0]}')"` : ''}>
         ${i.registro?.fotos?.[0] ? '' : '🏛️'}
@@ -281,26 +362,38 @@ export function renderListaMunicipios(state) {
         <div class="nome">${i.nome}</div>
         <div class="meta">${i.registro ? (i.registro.dataVisita ? formatarData(i.registro.dataVisita) : 'data não registrada') + ' · ' + (i.registro.fotos?.length || 0) + ' fotos' : 'ainda não visitada'}</div>
       </div>
-    </div>`).join('');
+    </div>`).join('')
+    + (restantes > 0
+      ? `<button class="pill-btn ghost full" id="btn-mais-municipios">Mostrar mais ${Math.min(restantes, MUNICIPIOS_POR_PAGINA)} (faltam ${restantes})</button>`
+      : '');
 
+  const porIdItem = new Map(visiveis.map((i) => [i.feature.properties.id, i]));
   cont.querySelectorAll('.cidade-card').forEach((card) => {
     card.onclick = () => {
-      const item = itens.find((i) => i.feature.properties.id === card.dataset.id);
-      abrirCidadeBR(item.feature, siglaAtual, item.registro || null);
+      const item = porIdItem.get(card.dataset.id);
+      if (item) abrirCidadeBR(item.feature, siglaAtual, item.registro || null);
     };
   });
+
+  const btnMais = document.getElementById('btn-mais-municipios');
+  if (btnMais) btnMais.onclick = () => {
+    municipiosMostrados += MUNICIPIOS_POR_PAGINA;
+    renderListaMunicipios(state);
+  };
 }
 
 // ---------- Listeners estáticos (busca e filtros dentro do estado) ----------
 
 export function ligarControlesEstado(state) {
   document.getElementById('busca-municipio').addEventListener('input', debounce(() => {
+    municipiosMostrados = MUNICIPIOS_POR_PAGINA;
     renderListaMunicipios(state);
   }, 150));
 
   document.querySelectorAll('[data-filtro-mun]').forEach((chip) => {
     chip.onclick = () => {
       filtroMunicipioAtual = chip.dataset.filtroMun;
+      municipiosMostrados = MUNICIPIOS_POR_PAGINA;
       document.querySelectorAll('[data-filtro-mun]').forEach((c) => c.classList.toggle('ativo', c === chip));
       renderListaMunicipios(state);
     };

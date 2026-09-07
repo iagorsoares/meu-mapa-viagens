@@ -9,6 +9,7 @@
 
 import { enviarFoto, urlMiniatura } from './upload.js';
 import { mostrarToast, hojeISO, centroDaFeature, formatarData } from './util.js';
+import { abrirLightbox as abrirGaleria } from './ui-lightbox.js';
 
 let callbacks = null;
 let modo = null;              // 'br' | 'mundo'
@@ -51,13 +52,6 @@ export function initModal(cbs) {
   elBtnExcluir().onclick = onExcluir;
   elBtnEditar().onclick = mostrarForm;
 
-  // Lightbox
-  document.getElementById('lightbox-fechar').onclick = fecharLightbox;
-  document.getElementById('lightbox').addEventListener('click', (e) => {
-    if (e.target.id === 'lightbox') fecharLightbox();
-  });
-  document.getElementById('lightbox-anterior').onclick = () => navegarLightbox(-1);
-  document.getElementById('lightbox-proxima').onclick = () => navegarLightbox(1);
 }
 
 // ---------- Abrir para Brasil ----------
@@ -217,38 +211,19 @@ async function onFotoEscolhida(slot, input) {
   input.value = '';
 }
 
-// ---------- Lightbox ----------
-let lightboxIndex = 0;
+// ---------- Fotos válidas ----------
 
 function fotosValidas() {
   return fotosAtuais.filter(Boolean);
 }
 
 function abrirLightbox(indexClicado) {
-  const validas = fotosValidas();
-  const foto = fotosAtuais[indexClicado];
-  lightboxIndex = validas.indexOf(foto);
-  document.getElementById('lightbox-img').src = foto.url;
-  document.getElementById('lightbox').classList.add('aberto');
+  const urls = fotosValidas().map((f) => f.url);
+  abrirGaleria(urls, fotosAtuais[indexClicado]?.url);
 }
 
 function abrirLightboxPorUrl(url) {
-  const validas = fotosValidas();
-  lightboxIndex = validas.findIndex((f) => f.url === url);
-  if (lightboxIndex < 0) lightboxIndex = 0;
-  document.getElementById('lightbox-img').src = url;
-  document.getElementById('lightbox').classList.add('aberto');
-}
-
-function navegarLightbox(delta) {
-  const validas = fotosValidas();
-  if (!validas.length) return;
-  lightboxIndex = (lightboxIndex + delta + validas.length) % validas.length;
-  document.getElementById('lightbox-img').src = validas[lightboxIndex].url;
-}
-
-function fecharLightbox() {
-  document.getElementById('lightbox').classList.remove('aberto');
+  abrirGaleria(fotosValidas().map((f) => f.url), url);
 }
 
 // ---------- Salvar / excluir ----------

@@ -5,7 +5,7 @@
 // CACHE_NOME muda a cada ajuste importante — isso força os celulares a
 // descartarem a cópia antiga e buscarem a nova assim que reconectarem.
 
-const CACHE_NOME = 'nosso-mapa-v2';
+const CACHE_NOME = 'nosso-mapa-v4';
 
 const ARQUIVOS_SHELL = [
   './',
@@ -21,8 +21,9 @@ const ARQUIVOS_SHELL = [
   './js/ui-dashboard.js',
   './js/ui-brasil.js',
   './js/ui-mundo.js',
-  './js/ui-viagens.js',
+  './js/ui-timeline.js',
   './js/ui-modal-cidade.js',
+  './js/ui-lightbox.js',
   './data/estados-br.json',
   './data/contagem-municipios-uf.json'
 ];

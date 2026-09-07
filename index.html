@@ -91,7 +91,7 @@
       <div id="brasil-estado-view" class="hidden">
         <button class="voltar-btn" data-voltar="brasil">‹ Todos os estados</button>
         <div class="detalhe-header">
-          <div class="badge" id="estado-badge">–</div>
+          <div class="badge-bandeira" id="estado-badge"></div>
           <div>
             <h2 id="estado-nome">–</h2>
             <div class="sub" id="estado-sub">–</div>
@@ -128,7 +128,7 @@
       <div id="mundo-pais-view" class="hidden">
         <button class="voltar-btn" data-voltar="mundo">‹ Todos os países</button>
         <div class="detalhe-header">
-          <div class="badge" id="pais-badge">–</div>
+          <div class="badge-bandeira" id="pais-badge"></div>
           <div>
             <h2 id="pais-nome">–</h2>
             <div class="sub">anos visitados</div>
@@ -141,44 +141,27 @@
           <input type="number" id="input-novo-ano" placeholder="Ano, ex: 2023" inputmode="numeric">
           <button class="pill-btn" id="btn-add-ano">＋ Adicionar</button>
         </div>
+
+        <div class="section-title" style="margin-top:22px;"><h2>Fotos</h2></div>
+        <div class="fotos-grid" id="fotos-grid-pais">
+          <label class="foto-slot" data-slot-pais="0"><span>＋</span><input type="file" accept="image/*"></label>
+          <label class="foto-slot" data-slot-pais="1"><span>＋</span><input type="file" accept="image/*"></label>
+          <label class="foto-slot" data-slot-pais="2"><span>＋</span><input type="file" accept="image/*"></label>
+        </div>
+        <div id="legendas-pais"></div>
       </div>
 
     </section>
 
-    <!-- ---------- VIAGENS ---------- -->
-    <section class="tab" id="tab-viagens">
-
-      <div id="viagens-lista-view">
-        <div class="section-title"><h2>Roteiros</h2><button class="pill-btn ghost" id="btn-nova-viagem">＋ nova</button></div>
-        <div id="lista-viagens"></div>
+    <!-- ---------- TIMELINE ---------- -->
+    <section class="tab" id="tab-timeline">
+      <div id="timeline-resumo"></div>
+      <div class="filtro-chips" id="timeline-filtros">
+        <button class="chip ativo" data-filtro-tl="tudo">Tudo</button>
+        <button class="chip" data-filtro-tl="br">🇧🇷 Brasil</button>
+        <button class="chip" data-filtro-tl="mundo">🌎 Mundo</button>
       </div>
-
-      <div id="viagens-detalhe-view" class="hidden">
-        <button class="voltar-btn" data-voltar="viagens">‹ Todos os roteiros</button>
-        <h2 id="viagem-titulo">–</h2>
-        <div class="sub mono" id="viagem-datas">–</div>
-        <div class="map-card" style="margin-top:12px;"><div id="mapa-viagem-detalhe" class="leaflet-map"></div></div>
-        <div class="rota-timeline"><h3 style="margin-bottom:14px;">Roteiro</h3><div class="rota-linha" id="viagem-paradas"></div></div>
-        <button class="pill-btn danger full" style="margin-top:16px;" id="btn-excluir-viagem">Excluir roteiro</button>
-      </div>
-
-      <div id="viagens-form-view" class="hidden">
-        <button class="voltar-btn" data-voltar="viagens">‹ Cancelar</button>
-        <h2 style="margin-bottom:14px;">Novo roteiro</h2>
-        <div class="campo">
-          <label>Título</label>
-          <input type="text" id="form-viagem-titulo" placeholder="Ex: Serra Gaúcha">
-        </div>
-        <div class="campo">
-          <label>Data</label>
-          <input type="date" id="form-viagem-data">
-        </div>
-        <div class="section-title"><h2>Paradas, em ordem</h2></div>
-        <div id="form-viagem-paradas"></div>
-        <button class="add-parada-btn" id="btn-add-parada">＋ adicionar parada</button>
-        <button class="pill-btn full" id="btn-salvar-viagem" style="margin-top:18px;">Salvar roteiro</button>
-      </div>
-
+      <div id="timeline-lista"></div>
     </section>
 
   </main>
@@ -187,7 +170,7 @@
     <button data-tab="dashboard" class="ativo"><span class="ic">🏠</span><span class="lb">Início</span></button>
     <button data-tab="brasil"><span class="ic">🇧🇷</span><span class="lb">Brasil</span></button>
     <button data-tab="mundo"><span class="ic">🌎</span><span class="lb">Mundo</span></button>
-    <button data-tab="viagens"><span class="ic">🚗</span><span class="lb">Viagens</span></button>
+    <button data-tab="timeline"><span class="ic">🗓️</span><span class="lb">Timeline</span></button>
   </nav>
 </div>
 
