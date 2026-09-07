@@ -14,12 +14,24 @@ let geoMunicipiosAtual = null;
 let filtroMunicipioAtual = 'todas';
 const cacheMunicipios = {}; // sigla -> FeatureCollection
 
-// Em vez de um zoom fixo (o zoom "de encaixe" varia MUITO conforme o formato
-// do estado — RS alongado precisa de zoom bem mais alto que um estado
-// compacto pra caber inteiro na tela), guardamos o zoom em que o estado foi
-// enquadrado ao abrir, e os nomes só aparecem X níveis de zoom além disso.
-let zoomBaseEstado = null;
-const NIVEIS_ZOOM_PARA_NOMES = 3.5; // quantos "apertos" de zoom além do estado inteiro até os nomes aparecerem
+// O limiar de zoom para mostrar os nomes é calculado por estado, com base no
+// tamanho MÉDIO DOS MUNICÍPIOS (não no tamanho do estado). Ancorar no estado
+// penalizava os menores: PR e SC já abrem num zoom mais fechado, então exigiam
+// muito mais zoom que RS/MG pra ver o mesmo tanto de nome. Assim o critério
+// passa a ser "cada município já está grande o bastante na tela pra caber um
+// rótulo", que se comporta igual em qualquer estado.
+let zoomLimiarNomes = null;
+const LARGURA_ALVO_MUNICIPIO_PX = 85; // quanto um município médio precisa ocupar na tela
+
+/** Zoom em que o município médio desse estado passa a ocupar ~LARGURA_ALVO_MUNICIPIO_PX na tela. */
+function calcularZoomLimiar(bounds, qtdMunicipios) {
+  const larguraGraus = Math.abs(bounds.getEast() - bounds.getWest());
+  const alturaGraus = Math.abs(bounds.getNorth() - bounds.getSouth());
+  const areaGraus = Math.max(larguraGraus * alturaGraus, 1e-6);
+  const larguraMediaMunicipio = Math.sqrt(areaGraus / Math.max(qtdMunicipios, 1));
+  // No Web Mercator, 1 grau de longitude = 256 * 2^zoom / 360 pixels.
+  return Math.log2((LARGURA_ALVO_MUNICIPIO_PX * 360) / (256 * larguraMediaMunicipio));
+}
 
 // ---------- Estatísticas ----------
 
@@ -167,10 +179,12 @@ export async function abrirEstado(state, sigla) {
   // já tem o tamanho real — se calcular antes (contêiner recém-exibido, ainda
   // sem layout), o Leaflet erra o zoom e libera os nomes cedo demais.
   const camadaRef = camadaMunicipios;
+  const qtdMunicipios = geoMunicipiosAtual.features.length;
   setTimeout(() => {
     mapaEstado.invalidateSize();
-    mapaEstado.fitBounds(camadaRef.getBounds(), { padding: [8, 8] });
-    zoomBaseEstado = mapaEstado.getZoom();
+    const bounds = camadaRef.getBounds();
+    mapaEstado.fitBounds(bounds, { padding: [8, 8] });
+    zoomLimiarNomes = calcularZoomLimiar(bounds, qtdMunicipios);
     atualizarVisibilidadeNomes(mapaEstado);
   }, 80);
 
@@ -182,8 +196,8 @@ function onZoomMudouEstado() {
 }
 
 function atualizarVisibilidadeNomes(mapa) {
-  if (!mapa || zoomBaseEstado == null) return;
-  const mostrar = mapa.getZoom() >= zoomBaseEstado + NIVEIS_ZOOM_PARA_NOMES;
+  if (!mapa || zoomLimiarNomes == null) return;
+  const mostrar = mapa.getZoom() >= zoomLimiarNomes;
   // Esconde/mostra o painel inteiro onde o Leaflet desenha os rótulos.
   // (Não dá pra fazer isso só por CSS: o Leaflet define a opacidade de cada
   // tooltip como estilo inline, o que sobrepõe qualquer regra da folha de estilo.)
