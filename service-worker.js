@@ -5,7 +5,7 @@
 // CACHE_NOME muda a cada ajuste importante — isso força os celulares a
 // descartarem a cópia antiga e buscarem a nova assim que reconectarem.
 
-const CACHE_NOME = 'nosso-mapa-v4';
+const CACHE_NOME = 'nosso-mapa-v5';
 
 const ARQUIVOS_SHELL = [
   './',

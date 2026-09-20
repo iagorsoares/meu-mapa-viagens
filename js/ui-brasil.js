@@ -27,6 +27,15 @@ let zoomLimiarNomes = null;
 const LARGURA_ALVO_MUNICIPIO_PX = 85; // quanto um município médio precisa ocupar na tela
 const MAX_NOMES_NA_TELA = 60; // teto de rótulos simultâneos, pra não pesar nem poluir
 
+// Medidas aproximadas do rótulo em pixels (font-size 7px, peso 600, Inter),
+// usadas só pra checar se dois nomes iriam se sobrepor na tela.
+const LARGURA_CARACTERE_PX = 4.2;
+const ALTURA_ROTULO_PX = 11;
+const FOLGA_ENTRE_ROTULOS_PX = 3;
+
+// Âncoras dos nomes, calculadas uma vez por estado aberto.
+let rotulosDoEstado = [];
+
 /** Zoom em que o município médio desse estado passa a ocupar ~LARGURA_ALVO_MUNICIPIO_PX na tela. */
 function calcularZoomLimiar(bounds, qtdMunicipios) {
   const larguraGraus = Math.abs(bounds.getEast() - bounds.getWest());
@@ -196,6 +205,8 @@ export async function abrirEstado(state, sigla) {
   // Limpa os nomes do estado anterior de imediato (senão ficam na tela até o
   // novo mapa terminar de se ajustar).
   if (camadaNomes) camadaNomes.clearLayers();
+  rotulosDoEstado = [];
+  zoomLimiarNomes = null;
 
   if (!mapaEstado) mapaEstado = L.map('mapa-estado-detalhe', { attributionControl: false, preferCanvas: true });
   if (camadaMunicipios) { mapaEstado.removeLayer(camadaMunicipios); camadaMunicipios = null; }
@@ -233,6 +244,7 @@ export async function abrirEstado(state, sigla) {
     mapaEstado.setMaxBounds(null);
     mapaEstado.fitBounds(bounds, { padding: [8, 8] });
     travarNavegacao(mapaEstado, bounds);
+    prepararRotulos(geoMunicipiosAtual);
     zoomLimiarNomes = calcularZoomLimiar(bounds, qtdMunicipios);
     atualizarNomesVisiveis();
   });
@@ -244,64 +256,248 @@ function onMapaEstadoMoveu() {
   atualizarNomesVisiveis();
 }
 
+// ---------- Onde colocar o nome de cada município ----------
+//
+// A versão anterior colocava o nome no meio do RETÂNGULO que envolve o
+// município, recortado pela tela. Com bastante zoom, o retângulo de vários
+// municípios vizinhos cobre a tela inteira — e aí todos os nomes iam parar no
+// mesmo ponto, o centro da tela. Era esse o empilhamento de nomes.
+//
+// Agora cada nome é ancorado num ponto que está DENTRO do próprio município
+// (não no retângulo). Como dois municípios não se sobrepõem, dois nomes nunca
+// mais caem no mesmo lugar. Por cima disso, um nome só é desenhado se não
+// encostar em outro que já foi desenhado.
+
+/** Anéis externos da feature (serve pra Polygon e MultiPolygon). */
+function aneisDaFeature(geometria) {
+  if (!geometria) return [];
+  if (geometria.type === 'Polygon') return (geometria.coordinates || []).slice(0, 1).filter(Boolean);
+  if (geometria.type === 'MultiPolygon') return (geometria.coordinates || []).map((p) => p && p[0]).filter(Boolean);
+  return [];
+}
+
+function areaDoAnel(anel) {
+  let soma = 0;
+  for (let i = 0, j = anel.length - 1; i < anel.length; j = i++) {
+    soma += anel[j][0] * anel[i][1] - anel[i][0] * anel[j][1];
+  }
+  return Math.abs(soma / 2);
+}
+
+function pontoDentroDoAnel(lng, lat, anel) {
+  let dentro = false;
+  for (let i = 0, j = anel.length - 1; i < anel.length; j = i++) {
+    const xi = anel[i][0], yi = anel[i][1], xj = anel[j][0], yj = anel[j][1];
+    if ((yi > lat) !== (yj > lat)) {
+      const x = xi + ((lat - yi) * (xj - xi)) / (yj - yi);
+      if (x > lng) dentro = !dentro;
+    }
+  }
+  return dentro;
+}
+
+/** Trechos de uma linha horizontal (numa latitude) que caem dentro do anel. */
+function faixasNaLatitude(anel, lat) {
+  const cortes = [];
+  for (let i = 0, j = anel.length - 1; i < anel.length; j = i++) {
+    const xi = anel[i][0], yi = anel[i][1], xj = anel[j][0], yj = anel[j][1];
+    if ((yi > lat) !== (yj > lat)) {
+      cortes.push(xi + ((lat - yi) * (xj - xi)) / (yj - yi));
+    }
+  }
+  cortes.sort((a, b) => a - b);
+  const faixas = [];
+  for (let i = 0; i + 1 < cortes.length; i += 2) faixas.push([cortes[i], cortes[i + 1]]);
+  return faixas;
+}
+
+/**
+ * Ponto fixo garantidamente dentro do município: o centroide, quando ele cai
+ * dentro do contorno; senão o meio do trecho mais largo na altura do centroide
+ * (municípios em forma de C ou de L têm o centroide fora de si mesmos).
+ */
+function pontoInternoDoAnel(anel) {
+  let cx = 0, cy = 0, area2 = 0;
+  for (let i = 0, j = anel.length - 1; i < anel.length; j = i++) {
+    const f = anel[j][0] * anel[i][1] - anel[i][0] * anel[j][1];
+    area2 += f;
+    cx += (anel[j][0] + anel[i][0]) * f;
+    cy += (anel[j][1] + anel[i][1]) * f;
+  }
+
+  let latRef = null;
+  if (area2 !== 0) {
+    const a = area2 / 2;
+    const lng = cx / (6 * a), lat = cy / (6 * a);
+    if (isFinite(lng) && isFinite(lat)) {
+      if (pontoDentroDoAnel(lng, lat, anel)) return { lat, lng };
+      latRef = lat;
+    }
+  }
+  if (latRef == null) {
+    let sul = Infinity, norte = -Infinity;
+    for (const [, y] of anel) { if (y < sul) sul = y; if (y > norte) norte = y; }
+    if (!isFinite(sul) || !isFinite(norte)) return null;
+    latRef = (sul + norte) / 2;
+  }
+
+  let melhor = null;
+  for (const faixa of faixasNaLatitude(anel, latRef)) {
+    if (!melhor || faixa[1] - faixa[0] > melhor[1] - melhor[0]) melhor = faixa;
+  }
+  return melhor ? { lat: latRef, lng: (melhor[0] + melhor[1]) / 2 } : null;
+}
+
+/** Calcula uma vez, por estado, a âncora e os limites de cada município. */
+function prepararRotulos(geo) {
+  rotulosDoEstado = [];
+  if (!geo || !geo.features) return;
+
+  for (const feature of geo.features) {
+    const aneis = aneisDaFeature(feature.geometry);
+    if (!aneis.length) continue;
+
+    let principal = aneis[0], maiorArea = -1;
+    for (const anel of aneis) {
+      const a = areaDoAnel(anel);
+      if (a > maiorArea) { maiorArea = a; principal = anel; }
+    }
+
+    const ancora = pontoInternoDoAnel(principal);
+    if (!ancora) continue;
+
+    let sul = Infinity, norte = -Infinity, oeste = Infinity, leste = -Infinity;
+    for (const anel of aneis) {
+      for (const [x, y] of anel) {
+        if (y < sul) sul = y;
+        if (y > norte) norte = y;
+        if (x < oeste) oeste = x;
+        if (x > leste) leste = x;
+      }
+    }
+
+    rotulosDoEstado.push({
+      nome: feature.properties.name,
+      lat: ancora.lat, lng: ancora.lng,
+      sul, norte, oeste, leste, aneis
+    });
+  }
+}
+
+/**
+ * Quando o município é maior que a tela, a âncora fixa fica fora de vista.
+ * Aqui procuramos um ponto que esteja dentro do município E dentro da tela:
+ * cortamos o município numa linha horizontal e pegamos o meio do trecho mais
+ * largo que aparece. Como os municípios não se sobrepõem, o ponto de cada um
+ * continua sendo só dele.
+ */
+function pontoInternoNaTela(municipio, sulV, norteV, oesteV, lesteV) {
+  const sul = Math.max(municipio.sul, sulV);
+  const norte = Math.min(municipio.norte, norteV);
+  if (sul > norte) return null;
+
+  const alturaVisivel = norte - sul;
+  const tentativas = [sul + alturaVisivel * 0.5, sul + alturaVisivel * 0.3, sul + alturaVisivel * 0.7];
+
+  for (const lat of tentativas) {
+    let melhor = null;
+    for (const anel of municipio.aneis) {
+      for (const faixa of faixasNaLatitude(anel, lat)) {
+        const ini = Math.max(faixa[0], oesteV);
+        const fim = Math.min(faixa[1], lesteV);
+        if (fim <= ini) continue;
+        if (!melhor || fim - ini > melhor[1] - melhor[0]) melhor = [ini, fim];
+      }
+    }
+    if (melhor) return { lat, lng: (melhor[0] + melhor[1]) / 2 };
+  }
+  return null;
+}
+
+function rotuloEncosta(colocados, x, y, largura, altura) {
+  for (const o of colocados) {
+    if (Math.abs(x - o.x) < (largura + o.largura) / 2 + FOLGA_ENTRE_ROTULOS_PX &&
+        Math.abs(y - o.y) < (altura + o.altura) / 2 + FOLGA_ENTRE_ROTULOS_PX) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Cria rótulo APENAS para os municípios que estão na tela agora, e só quando o
  * zoom passa do limiar. Criar os rótulos de todos de uma vez (496 no RS, 853 em
  * MG) fazia o Leaflet reposicionar centenas de elementos a cada arrastar/zoom —
  * era isso que deixava o mapa travado e lento pra abrir.
- *
- * O rótulo é posicionado dentro da PARTE VISÍVEL do município: quando se dá
- * bastante zoom, o município fica maior que a tela e seu centro sai de vista —
- * era por isso que vários nomes simplesmente não apareciam.
  */
 function atualizarNomesVisiveis() {
-  if (!mapaEstado || !camadaMunicipios || zoomLimiarNomes == null) return;
+  if (!mapaEstado || zoomLimiarNomes == null) return;
 
   if (!camadaNomes) camadaNomes = L.layerGroup().addTo(mapaEstado);
   camadaNomes.clearLayers();
 
+  if (!rotulosDoEstado.length) return;
   if (mapaEstado.getZoom() < zoomLimiarNomes) return;
 
   const areaVisivel = mapaEstado.getBounds();
-  const centroTela = areaVisivel.getCenter();
+  const sulV = areaVisivel.getSouth(), norteV = areaVisivel.getNorth();
+  const oesteV = areaVisivel.getWest(), lesteV = areaVisivel.getEast();
+  const centro = areaVisivel.getCenter();
+
+  // Quanto vale um pixel em graus, pra manter o nome longe da beirada da tela
+  // (um nome centrado na borda apareceria cortado pela metade).
+  const tela = mapaEstado.getSize();
+  const grausPorPxLng = (lesteV - oesteV) / Math.max(tela.x, 1);
+  const grausPorPxLat = (norteV - sulV) / Math.max(tela.y, 1);
+
   const candidatos = [];
+  for (const m of rotulosDoEstado) {
+    if (m.norte < sulV || m.sul > norteV || m.leste < oesteV || m.oeste > lesteV) continue;
 
-  camadaMunicipios.eachLayer((layer) => {
-    const posicao = pontoVisivelDoMunicipio(layer.getBounds(), areaVisivel);
-    if (!posicao) return;
-    const dLat = posicao.lat - centroTela.lat;
-    const dLng = posicao.lng - centroTela.lng;
-    candidatos.push({ posicao, nome: layer.feature.properties.name, distancia: dLat * dLat + dLng * dLng });
-  });
+    const largura = Math.max(m.nome.length * LARGURA_CARACTERE_PX, 16);
 
-  // Se houver mais candidatos que o teto, mantém os mais próximos do centro da
-  // tela — assim o corte nunca descarta um município que você está olhando.
-  if (candidatos.length > MAX_NOMES_NA_TELA) {
-    candidatos.sort((a, b) => a.distancia - b.distancia);
-    candidatos.length = MAX_NOMES_NA_TELA;
+    let lat = m.lat, lng = m.lng;
+    if (lat < sulV || lat > norteV || lng < oesteV || lng > lesteV) {
+      // Município maior que a tela: procura um ponto interno já afastado das
+      // bordas, senão o nome sai pela metade.
+      const margemX = Math.min(largura / 2 + 4, tela.x * 0.3) * grausPorPxLng;
+      const margemY = Math.min(ALTURA_ROTULO_PX / 2 + 4, tela.y * 0.3) * grausPorPxLat;
+      const alternativo = pontoInternoNaTela(
+        m, sulV + margemY, norteV - margemY, oesteV + margemX, lesteV - margemX
+      );
+      if (!alternativo) continue;
+      lat = alternativo.lat;
+      lng = alternativo.lng;
+    }
+
+    const dLat = lat - centro.lat, dLng = lng - centro.lng;
+    candidatos.push({ nome: m.nome, lat, lng, largura, distancia: dLat * dLat + dLng * dLng });
   }
 
+  // Do centro da tela pra fora: o que você está olhando ganha o nome primeiro,
+  // e quem sobrar sem espaço fica de fora em vez de escrever por cima.
+  candidatos.sort((a, b) => a.distancia - b.distancia);
+
+  const colocados = [];
   for (const c of candidatos) {
+    if (colocados.length >= MAX_NOMES_NA_TELA) break;
+
+    const p = mapaEstado.latLngToContainerPoint(L.latLng(c.lat, c.lng));
+
+    // Fora da tela ou cortado pela borda: melhor não desenhar do que desenhar
+    // um nome pela metade.
+    if (p.x - c.largura / 2 < 1 || p.x + c.largura / 2 > tela.x - 1) continue;
+    if (p.y - ALTURA_ROTULO_PX / 2 < 1 || p.y + ALTURA_ROTULO_PX / 2 > tela.y - 1) continue;
+
+    if (rotuloEncosta(colocados, p.x, p.y, c.largura, ALTURA_ROTULO_PX)) continue;
+    colocados.push({ x: p.x, y: p.y, largura: c.largura, altura: ALTURA_ROTULO_PX });
+
     camadaNomes.addLayer(
       L.tooltip({ permanent: true, direction: 'center', className: 'municipio-label', interactive: false })
-        .setLatLng(c.posicao)
+        .setLatLng(L.latLng(c.lat, c.lng))
         .setContent(c.nome)
     );
   }
-}
-
-/** Onde colocar o nome: no centro do município se ele estiver visível; senão, no meio do pedaço que aparece na tela. */
-function pontoVisivelDoMunicipio(boundsMunicipio, areaVisivel) {
-  if (!areaVisivel.intersects(boundsMunicipio)) return null;
-  const centro = boundsMunicipio.getCenter();
-  if (areaVisivel.contains(centro)) return centro;
-
-  const sul = Math.max(boundsMunicipio.getSouth(), areaVisivel.getSouth());
-  const norte = Math.min(boundsMunicipio.getNorth(), areaVisivel.getNorth());
-  const oeste = Math.max(boundsMunicipio.getWest(), areaVisivel.getWest());
-  const leste = Math.min(boundsMunicipio.getEast(), areaVisivel.getEast());
-  if (sul > norte || oeste > leste) return null;
-  return L.latLng((sul + norte) / 2, (oeste + leste) / 2);
 }
 
 export function fecharEstado() {
@@ -309,6 +505,8 @@ export function fecharEstado() {
   document.getElementById('brasil-lista-view').classList.remove('hidden');
   siglaAtual = null;
   if (camadaNomes) camadaNomes.clearLayers();
+  rotulosDoEstado = [];
+  zoomLimiarNomes = null;
 }
 
 function atualizarKPIsEstado(state, sigla) {
