@@ -179,7 +179,7 @@ onAuthStateChanged(auth, async (user) => {
 
 // ---------- Versão (só pra conferir se o celular está com o código mais novo) ----------
 
-const VERSAO_APP = 'v2026-09-18a';
+const VERSAO_APP = 'v2026-10-11a';
 const elVersao = document.getElementById('versao-app');
 if (elVersao) elVersao.textContent = VERSAO_APP;
 
